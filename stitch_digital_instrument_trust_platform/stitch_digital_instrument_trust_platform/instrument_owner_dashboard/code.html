@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Instrument Owner Dashboard - Digital Instrument Trust Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-on-surface": "#eff1f3",
+                      "on-secondary-container": "#217128",
+                      "tertiary-container": "#6d4500",
+                      "on-primary-fixed-variant": "#0e4688",
+                      "on-primary-fixed": "#001b3e",
+                      "on-error": "#ffffff",
+                      "secondary-container": "#a0f399",
+                      "primary": "#00366f",
+                      "on-secondary": "#ffffff",
+                      "outline": "#737782",
+                      "on-background": "#191c1e",
+                      "tertiary-fixed-dim": "#ffb957",
+                      "surface-container-high": "#e6e8ea",
+                      "on-secondary-fixed-variant": "#005312",
+                      "surface-container": "#eceef0",
+                      "surface-variant": "#e0e3e5",
+                      "surface-dim": "#d8dadc",
+                      "surface-container-low": "#f2f4f6",
+                      "surface-tint": "#305ea1",
+                      "error-container": "#ffdad6",
+                      "surface-bright": "#f8f9fb",
+                      "surface": "#f8f9fb",
+                      "outline-variant": "#c3c6d2",
+                      "surface-container-highest": "#e0e3e5",
+                      "primary-container": "#1a4d8f",
+                      "on-secondary-fixed": "#002204",
+                      "on-primary": "#ffffff",
+                      "tertiary-fixed": "#ffddb5",
+                      "error": "#ba1a1a",
+                      "on-tertiary-fixed-variant": "#643f00",
+                      "secondary": "#1b6d24",
+                      "on-primary-container": "#9dc0ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#191c1e",
+                      "background": "#f8f9fb",
+                      "secondary-fixed-dim": "#88d982",
+                      "secondary-fixed": "#a3f69c",
+                      "on-tertiary-fixed": "#2a1800",
+                      "on-tertiary": "#ffffff",
+                      "on-surface-variant": "#434750",
+                      "primary-fixed": "#d6e3ff",
+                      "on-tertiary-container": "#ffae31",
+                      "primary-fixed-dim": "#a9c7ff",
+                      "tertiary": "#4e3000",
+                      "inverse-surface": "#2d3133",
+                      "on-error-container": "#93000a",
+                      "inverse-primary": "#a9c7ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "base": "8px",
+                      "sidebar-width": "260px",
+                      "margin-mobile": "16px",
+                      "gutter": "24px",
+                      "xl": "32px",
+                      "sm": "8px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "margin-desktop": "40px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "IBM Plex Sans"
+                      ],
+                      "headline-md": [
+                              "IBM Plex Sans"
+                      ],
+                      "label-sm": [
+                              "IBM Plex Sans"
+                      ],
+                      "label-lg": [
+                              "IBM Plex Sans"
+                      ],
+                      "display": [
+                              "IBM Plex Sans"
+                      ],
+                      "body-md": [
+                              "IBM Plex Sans"
+                      ],
+                      "headline-lg-mobile": [
+                              "IBM Plex Sans"
+                      ],
+                      "headline-lg": [
+                              "IBM Plex Sans"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+          body {
+              font-family: 'IBM Plex Sans', sans-serif;
+          }
+      </style>
+</head>
+<body class="bg-background text-on-background h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[260px] bg-surface border-r border-outline-variant hidden lg:flex flex-col py-lg z-40">
+<div class="px-md mb-xl flex items-center gap-md">
+<img alt="Agency Logo" class="w-10 h-10 object-contain rounded" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPyKSs1TEGkRIjtyM7EcTAMWc8JqU-BADMOZgZHmZ_a30vd3Rfqd66uJS3YXj3lOueMxFwljrAT8PhBtyXaWaYfeSpymSfmVqw3REbR0BK46SRLWpvbL0dV6OIfz1eR3bbBW662c0KomuLwMnfNrkVgs13KcHrdAP4YKOWSn8SDZDhY6mqQPdgYcw7rxJS3UkWYAO_qLn8EJmvyZ2jGM_dTWElo0xJ-ID18FFpQBQNFBBtCiga3Jl1"/>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Digital Instrument Trust</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Institutional Compliance</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col font-body-md text-body-md gap-sm">
+<a class="flex items-center gap-md text-on-surface-variant px-md py-base hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-md bg-secondary-container text-on-secondary-container border-l-4 border-primary px-md py-base hover:bg-surface-container-high transition-colors opacity-90 transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="precision_manufacturing">precision_manufacturing</span>
+                My Instruments
+            </a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-base hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+                Applications
+            </a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-base hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+                Certificates
+            </a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-base hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+                Alerts
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 lg:ml-[260px] flex flex-col h-full overflow-hidden relative">
+<!-- TopNavBar (Mobile) -->
+<header class="lg:hidden flex justify-between items-center w-full px-margin-mobile h-16 z-50 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<button class="text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-primary truncate max-w-[200px]">Digital Instrument Trust Platform</h2>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">help</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">settings</span>
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">person</span>
+</div>
+</div>
+</header>
+<!-- Desktop Header Content Area -->
+<div class="hidden lg:flex justify-between items-center w-full px-margin-desktop h-16 bg-surface border-b border-outline-variant z-10 shrink-0">
+<div class="font-label-lg text-label-lg text-on-surface-variant flex items-center gap-2">
+<span>My Instruments</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-primary font-medium">Overview</span>
+</div>
+<div class="flex items-center gap-gutter">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full font-body-md text-body-md focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-all w-64" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant cursor-pointer overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">person</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Scrollable Canvas -->
+<div class="flex-1 overflow-y-auto p-margin-mobile lg:p-margin-desktop bg-background">
+<!-- Header & Primary Action -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-xl gap-4">
+<div>
+<h2 class="font-display text-display text-on-background mb-xs">Instrument Dashboard</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage compliance and monitor calibration status.</p>
+</div>
+<button class="bg-primary text-on-primary font-label-lg text-label-lg px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    Apply for Verification
+                </button>
+</div>
+<!-- Summary Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-xl">
+<div class="bg-surface border border-outline-variant rounded-xl p-lg flex flex-col justify-between hover:bg-surface-container-low transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">verified</span>
+</div>
+<span class="font-headline-md text-headline-md font-bold text-on-background group-hover:text-primary transition-colors">12</span>
+</div>
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface-variant mb-1">Active Certificates</h3>
+<p class="font-label-sm text-label-sm text-outline">Currently valid instruments</p>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-lg flex flex-col justify-between hover:bg-surface-container-low transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/10 flex items-center justify-center text-tertiary-container">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<span class="font-headline-md text-headline-md font-bold text-on-background group-hover:text-tertiary-container transition-colors">2</span>
+</div>
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface-variant mb-1">Pending Applications</h3>
+<p class="font-label-sm text-label-sm text-outline">Awaiting review</p>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-lg flex flex-col justify-between hover:bg-surface-container-low transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-error-container/50 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<span class="font-headline-md text-headline-md font-bold text-on-background group-hover:text-error transition-colors">1</span>
+</div>
+<div>
+<h3 class="font-label-lg text-label-lg text-on-surface-variant mb-1">Expiring Soon</h3>
+<p class="font-label-sm text-label-sm text-outline">Requires action in 30 days</p>
+</div>
+</div>
+</div>
+<!-- Instrument Grid -->
+<div class="mb-6 flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-background">Registered Instruments</h3>
+<div class="flex gap-2">
+<button class="p-1.5 border border-outline-variant rounded bg-surface text-primary hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+</button>
+<button class="p-1.5 border border-outline-variant rounded bg-transparent text-on-surface-variant hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]">view_list</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter pb-xl">
+<!-- Card 1 (Valid) -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="h-32 bg-surface-container-high border-b border-outline-variant relative">
+<div class="w-full h-full bg-cover bg-center mix-blend-multiply opacity-80" data-alt="A professional studio photograph of a highly precise digital industrial scale, sleek metallic finish, glowing digital display showing zero. The setting is a clean, modern metrology laboratory with bright, cool white lighting. The aesthetic is institutional, precise, and high-tech, using a restrained palette of whites, greys, and deep blue accents." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCU_CUSCILFFxNMixmiU1_YX3RRiNVgr12-gxxc2M6Bkn0JXUxQvjOiF-XNCUt9LmM801nlbzhAk1g-90dz0fYx0-HkB6K_6GNabvT9_f57ImZlf9LldJJnL-SqPQpOYHYc3KfasIW-Ya4x80h06R-BAZXTqllJxOV8jQPphii-UFNhcmRFNZ0hC6oRLWmAjwhWyCp4SiN13jG6r5PNXQteiNtS4aF3eiCLpzIUyhf7asvFXnMQxzPE')"></div>
+<div class="absolute top-3 right-3 bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2.5 py-1 rounded-full flex items-center gap-1 border border-secondary/20 shadow-sm backdrop-blur-sm">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                             VALID
+                         </div>
+</div>
+<div class="p-lg flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-headline-md text-headline-md text-on-background">Industrial Scale XA</h4>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Class III Non-automatic weighing instrument.</p>
+<div class="mt-auto space-y-3 border-t border-outline-variant/50 pt-4">
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Serial Number</span>
+<span class="text-on-background font-medium">SN-8829-X</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Last Verified</span>
+<span class="text-on-background font-medium">12 Oct 2023</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Next Due</span>
+<span class="text-on-background font-medium">12 Oct 2024</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2 (Compliance Readiness - 75%) -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden flex flex-col relative ring-1 ring-tertiary-container/30">
+<div class="absolute inset-x-0 top-0 h-1 bg-tertiary-fixed-dim z-10"></div>
+<div class="h-32 bg-surface-container-high border-b border-outline-variant relative">
+<div class="w-full h-full bg-cover bg-center mix-blend-multiply opacity-80" data-alt="A macro shot of a sophisticated fluid flow meter in a pristine industrial environment. Focus on the digital readouts and metallic piping. Soft, high-key lighting creates a bright, modern, and credible atmosphere. The color palette emphasizes clean silvers, stark whites, and institutional deep blue details, conveying accuracy and regulatory compliance." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAX5Gkc4g4HArydl5VKh8rkDm5cekolISDBG3d9RvpS2ZwuQNT_sytU9J0MTUVkeFbkUJw--oYGNzmVJgqHMezQZ2DmyIdhxh617KWRs-dM_JXU0F_snxXVnKP8ryaNOssfoLsU7By4CI16I4hz3nZup7ie_t8yYFeATYGwvN-M0IV_u4IUnqaYoLtzmZ6Iw93f-YBPBU84EV0O1OWuJveMtYtn6ptr55N_o8DaetcLwfqim8IOw_lL')"></div>
+<div class="absolute top-3 right-3 bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2.5 py-1 rounded-full flex items-center gap-1 border border-tertiary/20 shadow-sm backdrop-blur-sm">
+<span class="material-symbols-outlined text-[14px]">pending</span>
+                             INCOMPLETE
+                         </div>
+</div>
+<div class="p-lg flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-headline-md text-headline-md text-on-background">Flow Meter FM-Pro</h4>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Volume measuring instrument for liquids.</p>
+<div class="mb-4 bg-surface-container-low p-3 rounded-lg border border-outline-variant/30">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-sm text-label-sm text-on-background font-semibold">Compliance Readiness</span>
+<span class="font-label-sm text-label-sm text-tertiary-container font-bold">75%</span>
+</div>
+<div class="w-full bg-surface-variant rounded-full h-1.5 mb-2 overflow-hidden">
+<div class="bg-tertiary-container h-1.5 rounded-full" style="width: 75%"></div>
+</div>
+<p class="font-label-sm text-label-sm text-error flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                Missing: Calibration Certificate
+                            </p>
+</div>
+<div class="mt-auto space-y-3 border-t border-outline-variant/50 pt-4">
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Serial Number</span>
+<span class="text-on-background font-medium">SN-3312-F</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Last Verified</span>
+<span class="text-on-background font-medium">N/A</span>
+</div>
+<button class="w-full mt-2 py-1.5 text-center font-label-sm text-label-sm text-primary border border-primary/30 rounded hover:bg-primary/5 transition-colors">
+                                Upload Certificate
+                            </button>
+</div>
+</div>
+</div>
+<!-- Card 3 (Expiring) -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="h-32 bg-surface-container-high border-b border-outline-variant relative">
+<div class="w-full h-full bg-cover bg-center mix-blend-multiply opacity-80" data-alt="A clean, brightly lit photograph of an automated retail point-of-sale scanner and scale unit. The setting is a minimalist, modern laboratory with cool daylight lighting. The image relies on deep blue, crisp white, and subtle grey tones to emphasize a corporate, institutional, and highly credible metrology testing environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDMa3wyVjbmtu3x5_d0KasM1WuOmGiD-gAUV22CHQUMyo92w6t-oTpJg8bE7uRC3mL11xXKpCFzYqotJkVsXG73ykb7jNmOB3B1vPxxcPsEWdmeNKyn_CULdS2ylxvzNv118OPYz8EkQEX53GdwJuIFBIGrZQXURJB6DOLPQ_8nkj7ayl4iMOF24Cw0uofQyvqLxsahhiOZIAAQ45fyaNsxcO1vJpiVFmMS8duncP2MsCw4y4DC-net')"></div>
+<div class="absolute top-3 right-3 bg-error-container text-on-error-container font-label-sm text-label-sm px-2.5 py-1 rounded-full flex items-center gap-1 border border-error/20 shadow-sm backdrop-blur-sm">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                             EXPIRING SOON
+                         </div>
+</div>
+<div class="p-lg flex flex-col flex-1">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-headline-md text-headline-md text-on-background">Retail POS Scale V2</h4>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Price computing scale for direct sales.</p>
+<div class="mt-auto space-y-3 border-t border-outline-variant/50 pt-4">
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Serial Number</span>
+<span class="text-on-background font-medium">SN-9941-R</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Last Verified</span>
+<span class="text-on-background font-medium">05 Apr 2022</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<span class="text-outline">Next Due</span>
+<span class="text-error font-medium">05 Apr 2024 (12 Days)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-outline-variant flex justify-around items-center h-16 z-50">
+<a class="flex flex-col items-center gap-1 text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined text-[24px]">dashboard</span>
+<span class="font-label-sm text-[10px]">Dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary p-2" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">precision_manufacturing</span>
+<span class="font-label-sm text-[10px] font-bold">Instruments</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined text-[24px]">description</span>
+<span class="font-label-sm text-[10px]">Apps</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant p-2" href="#">
+<span class="material-symbols-outlined text-[24px]">notifications</span>
+<span class="font-label-sm text-[10px]">Alerts</span>
+</a>
+</nav>
+</body></html>

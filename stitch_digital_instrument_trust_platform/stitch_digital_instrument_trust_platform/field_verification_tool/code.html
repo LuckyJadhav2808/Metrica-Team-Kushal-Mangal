@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Field Verification - Digital Instrument Trust Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-container": "#217128",
+                        "tertiary-container": "#6d4500",
+                        "on-primary-fixed-variant": "#0e4688",
+                        "on-primary-fixed": "#001b3e",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#a0f399",
+                        "primary": "#00366f",
+                        "on-secondary": "#ffffff",
+                        "outline": "#737782",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed-dim": "#ffb957",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-fixed-variant": "#005312",
+                        "surface-container": "#eceef0",
+                        "surface-variant": "#e0e3e5",
+                        "surface-dim": "#d8dadc",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-tint": "#305ea1",
+                        "error-container": "#ffdad6",
+                        "surface-bright": "#f8f9fb",
+                        "surface": "#f8f9fb",
+                        "outline-variant": "#c3c6d2",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-container": "#1a4d8f",
+                        "on-secondary-fixed": "#002204",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffddb5",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#643f00",
+                        "secondary": "#1b6d24",
+                        "on-primary-container": "#9dc0ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "background": "#f8f9fb",
+                        "secondary-fixed-dim": "#88d982",
+                        "secondary-fixed": "#a3f69c",
+                        "on-tertiary-fixed": "#2a1800",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#434750",
+                        "primary-fixed": "#d6e3ff",
+                        "on-tertiary-container": "#ffae31",
+                        "primary-fixed-dim": "#a9c7ff",
+                        "tertiary": "#4e3000",
+                        "inverse-surface": "#2d3133",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#a9c7ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "base": "8px",
+                        "sidebar-width": "260px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "margin-desktop": "40px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["IBM Plex Sans"],
+                        "headline-md": ["IBM Plex Sans"],
+                        "label-sm": ["IBM Plex Sans"],
+                        "label-lg": ["IBM Plex Sans"],
+                        "display": ["IBM Plex Sans"],
+                        "body-md": ["IBM Plex Sans"],
+                        "headline-lg-mobile": ["IBM Plex Sans"],
+                        "headline-lg": ["IBM Plex Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "display": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'IBM Plex Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col overflow-hidden">
+<!-- Top Banner: Offline Mode -->
+<div class="bg-primary-container text-on-primary-container py-xs px-margin-mobile flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined" style="font-size: 16px;">cloud_off</span>
+<span class="font-label-sm text-label-sm">Offline Mode — will sync</span>
+</div>
+<!-- Main Scrollable Content -->
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- Header: Instrument Identity -->
+<section class="bg-surface border-b border-outline-variant p-margin-mobile md:px-margin-desktop md:py-lg flex flex-col items-center text-center gap-md">
+<div class="w-32 h-32 rounded-lg overflow-hidden border border-outline-variant shadow-sm relative">
+<img class="object-cover w-full h-full" data-alt="A high-resolution photograph of a commercial electronic scale used in a retail or industrial setting. The scale is clean, modern, and displays clear digital readouts. It sits on a sterile metallic surface under bright, institutional white lighting. The overall aesthetic is professional, clinical, and precise, aligning with a corporate modern legal metrology dashboard. Deep blue accents may be present in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAaOVnEEBhIn6ugtTfp-g01ZYaGzleMRD4Ov8tl2tfhXKYpxM391kVqotkaWzljzM8eYczEdKjM2QxD_0oFaczwfkn3Xofxxt6dkdCpM1nRG6gFquneOt919S8JaB5PUZyFhc_TIPz37YdpzZbPxw41rFXjwS31RloIo9v4SBUudi7OrRZy4nN3F13OneMNgVyqTVPSDMCa03-vrXA74T0S6lN9jls9rpGmIv2SRayefK4W8RK2nRs"/>
+<div class="absolute inset-0 border border-black/10 rounded-lg pointer-events-none"></div>
+</div>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary">ID: 55201</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">SN-8829-X • Platform Scale</p>
+</div>
+<button class="w-full max-w-sm flex items-center justify-center gap-sm bg-primary text-on-primary py-3 px-4 rounded-lg font-label-lg text-label-lg hover:bg-surface-tint transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined">photo_camera</span>
+                Verify Serial Number
+            </button>
+</section>
+<!-- Middle: Adaptive Checklist -->
+<section class="p-margin-mobile md:px-margin-desktop md:py-lg max-w-3xl mx-auto space-y-md">
+<!-- Category: Physical Integrity -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden">
+<div class="bg-surface-container-low px-4 py-3 border-b border-outline-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">view_in_ar</span>
+<h2 class="font-label-lg text-label-lg text-on-surface">Physical Integrity</h2>
+</div>
+<div class="p-4 space-y-4">
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 bg-surface" type="checkbox"/>
+<div class="flex-1">
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Housing is intact, no visible cracks</span>
+</div>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 bg-surface" type="checkbox"/>
+<div class="flex-1">
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Level bubble is centered</span>
+</div>
+</label>
+<div class="pt-2">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Notes</label>
+<input class="w-full bg-surface border border-outline-variant rounded p-2 font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none" placeholder="Add observation..." type="text"/>
+</div>
+</div>
+</div>
+<!-- Category: Accuracy Test -->
+<div class="bg-surface rounded-xl border border-outline-variant overflow-hidden">
+<div class="bg-surface-container-low px-4 py-3 border-b border-outline-variant flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">balance</span>
+<h2 class="font-label-lg text-label-lg text-on-surface">Accuracy Test</h2>
+</div>
+<div class="p-4 space-y-4">
+<label class="flex items-start gap-3 cursor-pointer group">
+<input class="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-0 bg-surface" type="checkbox"/>
+<div class="flex-1">
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Zero-tracking operates correctly</span>
+</div>
+</label>
+<div class="pt-2">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Test Load Result (kg)</label>
+<input class="w-full bg-surface border border-outline-variant rounded p-2 font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all outline-none" placeholder="Enter value..." type="number"/>
+</div>
+</div>
+</div>
+<!-- Bottom: Evidence Upload -->
+<div class="bg-surface rounded-xl border border-outline-variant p-4">
+<div class="flex items-center justify-between mb-4">
+<h2 class="font-label-lg text-label-lg text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">attach_file</span>
+                        Evidence
+                    </h2>
+<button class="text-primary font-label-sm text-label-sm hover:underline">Add Photo</button>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div class="aspect-square bg-surface-container rounded border border-outline-variant border-dashed flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-outline">add_a_photo</span>
+</div>
+<div class="aspect-square bg-surface-container rounded border border-outline-variant border-dashed flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-outline">add_a_photo</span>
+</div>
+<div class="aspect-square bg-surface-container rounded border border-outline-variant border-dashed flex items-center justify-center cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-outline">add_a_photo</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Actions: PASS / FAIL -->
+<footer class="bg-surface border-t border-outline-variant p-margin-mobile fixed bottom-0 w-full z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
+<div class="flex gap-4 max-w-3xl mx-auto">
+<button class="flex-1 bg-error text-on-error py-4 rounded-lg font-headline-md text-headline-md shadow-sm active:scale-95 transition-transform duration-150 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cancel</span>
+                FAIL
+            </button>
+<button class="flex-1 bg-secondary text-on-secondary py-4 rounded-lg font-headline-md text-headline-md shadow-sm active:scale-95 transition-transform duration-150 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                PASS
+            </button>
+</div>
+</footer>
+</body></html>
