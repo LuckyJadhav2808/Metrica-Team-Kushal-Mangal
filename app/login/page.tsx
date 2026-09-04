@@ -22,40 +22,57 @@ export default function LoginPage() {
   const [ownerMode, setOwnerMode] = useState<"SIGN_IN" | "REGISTER">("SIGN_IN");
 
   // Sign In credentials state
-  const [email, setEmail] = useState("controller.lm@nic.in");
-  const [password, setPassword] = useState("••••••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Business Owner Registration fields
   const [businessName, setBusinessName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
   const [regPhone, setRegPhone] = useState("");
   const [gstin, setGstin] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
   const [circle, setCircle] = useState("Delhi North District Circle");
 
-  // Role tab switch handler with automated credential pre-fill
+  // Citizen Certificate Lookup
+  const [citizenCertId, setCitizenCertId] = useState("");
+
+  // Role tab switch handler - sets appropriate theme and clears/prepares inputs
   const handleRoleSelect = (role: LoginRole) => {
     setSelectedRole(role);
+    setEmail("");
+    setPassword("");
+  };
+
+  // Helper for evaluators to quickly prefill valid credentials without typing
+  const handleQuickFillCredentials = (role: LoginRole) => {
     if (role === "ADMIN") {
       setEmail("controller.lm@nic.in");
+      setPassword("password123");
     } else if (role === "LMO") {
       setEmail("rajesh.kumar.lmo@gov.in");
+      setPassword("password123");
     } else if (role === "OWNER") {
       setEmail("ramesh.patel@greenvalley.in");
+      setPassword("password123");
     }
+    toast.info("Demo Credentials Applied", "Pre-filled institutional credentials for evaluation.");
   };
 
   const handleOfficerSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
 
+    const credentialEmail = email.trim();
+    const credentialPassword = password.trim() || "password123";
+
     // 1. Establish Supabase Auth session in browser
     try {
       await supabase.auth.signInWithPassword({
-        email,
-        password: password === "••••••••••••" ? "password123" : password,
+        email: credentialEmail,
+        password: credentialPassword,
       });
     } catch (e) {
       console.warn("Supabase auth notice:", e);
@@ -65,13 +82,17 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: selectedRole !== "CITIZEN" ? selectedRole : undefined }),
+        body: JSON.stringify({
+          email: credentialEmail,
+          password: credentialPassword,
+          role: selectedRole !== "CITIZEN" ? selectedRole : undefined,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error("Authentication Failed", data.error || "Invalid credentials");
+        toast.error("Authentication Failed", data.error || "Invalid credentials. Please verify your clearance.");
         setIsAuthenticating(false);
         return;
       }
@@ -103,11 +124,20 @@ export default function LoginPage() {
     e.preventDefault();
     setIsAuthenticating(true);
 
+    if (!regEmail || !regPassword) {
+      toast.error("Required Fields Missing", "Please provide a valid official email and account password.");
+      setIsAuthenticating(false);
+      return;
+    }
+
+    const trimmedEmail = regEmail.trim().toLowerCase();
+    const cleanPassword = regPassword.trim();
+
     // Register with Supabase Auth
     try {
       await supabase.auth.signUp({
-        email: regEmail,
-        password: "password123",
+        email: trimmedEmail,
+        password: cleanPassword,
         options: {
           data: {
             role: "OWNER",
@@ -129,8 +159,8 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: contactPerson || "Commercial Merchant",
-          email: regEmail,
-          password: "password123",
+          email: trimmedEmail,
+          password: cleanPassword,
           role: "OWNER",
           organizationName: businessName || "Retail Trading Corp",
           jurisdictionCircle: circle,
@@ -160,7 +190,7 @@ export default function LoginPage() {
         role: "OWNER",
         name: contactPerson || "Commercial Merchant",
         designation: "Commercial Licensee",
-        email: regEmail || "merchant@business.in",
+        email: trimmedEmail || "merchant@business.in",
         phone: regPhone || "+91 98000 00000",
         organizationName: businessName || "Retail Trading Corp",
         jurisdictionCircle: circle,
@@ -176,6 +206,13 @@ export default function LoginPage() {
     loginAs("PUBLIC");
     toast.info("Public Citizen Access", "Redirecting to public QR measurement verification tool.");
     router.push("/qr/demo");
+  };
+
+  const handleCitizenCertSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citizenCertId.trim()) return;
+    loginAs("PUBLIC");
+    router.push(`/qr/${encodeURIComponent(citizenCertId.trim())}`);
   };
 
   const handleQuickEvaluatorPass = async (role: UserRole) => {
@@ -215,7 +252,7 @@ export default function LoginPage() {
     }
 
     const p = GOVERNMENT_PERSONAS[role];
-    toast.info("Evaluator Fast Pass", `Switched to ${p.name} (${p.designation})`);
+    toast.info("Evaluator Fast Pass", `Logged in as ${p.name} (${p.designation})`);
 
     if (role === "ADMIN") router.push("/admin");
     else if (role === "LMO") router.push("/lmo");
@@ -245,7 +282,7 @@ export default function LoginPage() {
               <div>
                 <div className="text-xl font-black tracking-tight leading-none">Metrica</div>
                 <div className="text-[10px] text-white/70 font-medium tracking-wide mt-0.5">
-                  Digital Identity Compliance
+                  Digital Identity & Statutory Measurement Compliance
                 </div>
               </div>
             </div>
@@ -362,69 +399,89 @@ export default function LoginPage() {
           <div className="max-w-md w-full mx-auto my-auto py-4">
             {/* 4 ROLES SELECTOR TABS (Admin, LMO, Business Owner, Citizen) */}
             <div className="mb-5">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
-                Select Your Role to Continue
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                  Select Your Role to Continue
+                </label>
+                <span className="text-[10px] text-outline font-medium">
+                  {selectedRole === "ADMIN" && "Controller Clearance"}
+                  {selectedRole === "LMO" && "Inspector Docket"}
+                  {selectedRole === "OWNER" && "Commercial Licensee"}
+                  {selectedRole === "CITIZEN" && "Public Access"}
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {/* 1. Admin */}
                 <button
                   type="button"
+                  id="tab-role-admin"
                   onClick={() => handleRoleSelect("ADMIN")}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     selectedRole === "ADMIN"
-                      ? "border-primary bg-primary text-white shadow-md font-bold"
+                      ? "border-[#002B5B] bg-[#002B5B] text-white shadow-md font-bold ring-2 ring-[#002B5B]/30"
                       : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">shield</span>
                   <span className="text-xs leading-tight">Admin</span>
-                  <span className={`text-[9px] ${selectedRole === "ADMIN" ? "text-white/80" : "text-outline"}`}>Controller</span>
+                  <span className={`text-[9px] ${selectedRole === "ADMIN" ? "text-amber-300" : "text-outline"}`}>
+                    Controller
+                  </span>
                 </button>
 
                 {/* 2. LMO */}
                 <button
                   type="button"
+                  id="tab-role-lmo"
                   onClick={() => handleRoleSelect("LMO")}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     selectedRole === "LMO"
-                      ? "border-primary bg-primary text-white shadow-md font-bold"
+                      ? "border-emerald-700 bg-emerald-700 text-white shadow-md font-bold ring-2 ring-emerald-700/30"
                       : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">fact_check</span>
                   <span className="text-xs leading-tight">LMO</span>
-                  <span className={`text-[9px] ${selectedRole === "LMO" ? "text-white/80" : "text-outline"}`}>Inspector</span>
+                  <span className={`text-[9px] ${selectedRole === "LMO" ? "text-emerald-200" : "text-outline"}`}>
+                    Inspector
+                  </span>
                 </button>
 
                 {/* 3. Business Owner */}
                 <button
                   type="button"
+                  id="tab-role-owner"
                   onClick={() => handleRoleSelect("OWNER")}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     selectedRole === "OWNER"
-                      ? "border-primary bg-primary text-white shadow-md font-bold"
+                      ? "border-indigo-700 bg-indigo-700 text-white shadow-md font-bold ring-2 ring-indigo-700/30"
                       : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">storefront</span>
                   <span className="text-xs leading-tight">Business</span>
-                  <span className={`text-[9px] ${selectedRole === "OWNER" ? "text-white/80" : "text-outline"}`}>Owner</span>
+                  <span className={`text-[9px] ${selectedRole === "OWNER" ? "text-indigo-200" : "text-outline"}`}>
+                    Merchant
+                  </span>
                 </button>
 
                 {/* 4. Citizen */}
                 <button
                   type="button"
+                  id="tab-role-citizen"
                   onClick={() => handleRoleSelect("CITIZEN")}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
                     selectedRole === "CITIZEN"
-                      ? "border-primary bg-primary text-white shadow-md font-bold"
+                      ? "border-purple-700 bg-purple-700 text-white shadow-md font-bold ring-2 ring-purple-700/30"
                       : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">group</span>
                   <span className="text-xs leading-tight">Citizen</span>
-                  <span className={`text-[9px] ${selectedRole === "CITIZEN" ? "text-white/80" : "text-outline"}`}>Consumer</span>
+                  <span className={`text-[9px] ${selectedRole === "CITIZEN" ? "text-purple-200" : "text-outline"}`}>
+                    Consumer
+                  </span>
                 </button>
               </div>
             </div>
@@ -432,24 +489,35 @@ export default function LoginPage() {
             {/* TAB 1: ADMIN (CONTROLLER) SIGN IN */}
             {selectedRole === "ADMIN" && (
               <div className="space-y-4">
-                <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant text-xs">
-                  <div className="flex items-center gap-2 font-bold text-on-surface">
-                    <span className="material-symbols-outlined text-primary text-lg">verified_user</span>
-                    Dr. S. K. Verma • Controller of Legal Metrology
+                {/* Official Institutional Authority Clearance Banner */}
+                <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-2 font-bold text-[#002B5B]">
+                    <span className="material-symbols-outlined text-[#002B5B] text-lg">shield</span>
+                    Central Legal Metrology Directorate Gateway
                   </div>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    Central Metrology Directorate, Krishi Bhawan, New Delhi • Badge: DoCA-DIR-001
+                  <p className="text-[11px] text-blue-900/70 mt-0.5">
+                    Krishi Bhawan, New Delhi • Level-4 National Regulatory Oversight
                   </p>
                 </div>
 
                 <form onSubmit={handleOfficerSignIn} className="space-y-3 text-xs">
                   <div>
-                    <label className="block font-semibold text-on-surface mb-1">Official NIC / Parichay Email</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-semibold text-on-surface">Official NIC / Parichay Email</label>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickFillCredentials("ADMIN")}
+                        className="text-[10px] text-[#002B5B] hover:underline font-semibold"
+                      >
+                        Auto-fill Demo
+                      </button>
+                    </div>
                     <input
-                      type="text"
+                      type="email"
+                      placeholder="e.g. controller.lm@nic.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-primary"
+                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-[#002B5B]"
                       required
                     />
                   </div>
@@ -458,9 +526,10 @@ export default function LoginPage() {
                     <label className="block font-semibold text-on-surface mb-1">Security PIN / Password</label>
                     <input
                       type="password"
+                      placeholder="Enter your security PIN or password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-primary"
+                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-[#002B5B]"
                       required
                     />
                   </div>
@@ -468,36 +537,54 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={isAuthenticating}
-                    className="w-full py-2.5 bg-primary text-white rounded-lg font-bold text-xs shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-2 mt-2"
+                    className="w-full py-2.5 bg-[#002B5B] text-white rounded-lg font-bold text-xs shadow-sm hover:bg-[#002B5B]/90 transition-all flex items-center justify-center gap-2 mt-2"
                   >
                     <span className="material-symbols-outlined text-sm">login</span>
-                    Sign In as Administrator &rarr;
+                    {isAuthenticating ? "Verifying Directorate Clearance..." : "Sign In to Directorate Dashboard →"}
                   </button>
                 </form>
+
+                <div className="p-2.5 rounded-lg bg-surface-container-low border border-outline-variant text-[11px] text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-outline">info</span>
+                  <span>
+                    Government Officer credentials are pre-provisioned by Directorate IT. Public self-registration is restricted.
+                  </span>
+                </div>
               </div>
             )}
 
             {/* TAB 2: LMO (FIELD INSPECTOR) SIGN IN */}
             {selectedRole === "LMO" && (
               <div className="space-y-4">
-                <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant text-xs">
-                  <div className="flex items-center gap-2 font-bold text-on-surface">
-                    <span className="material-symbols-outlined text-primary text-lg">badge</span>
-                    Rajesh Kumar • Legal Metrology Inspector (Grade-I)
+                {/* Official Inspectorate Clearance Banner */}
+                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-2 font-bold text-emerald-800">
+                    <span className="material-symbols-outlined text-emerald-700 text-lg">fact_check</span>
+                    District Legal Metrology Inspectorate Docket
                   </div>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    Delhi North District Circle • Officer Badge: LMO-DL-N-884
+                  <p className="text-[11px] text-emerald-900/70 mt-0.5">
+                    Field Verification, MPE Tolerance & Stamping (Sec. 24, Legal Metrology Act)
                   </p>
                 </div>
 
                 <form onSubmit={handleOfficerSignIn} className="space-y-3 text-xs">
                   <div>
-                    <label className="block font-semibold text-on-surface mb-1">Inspector Government Email / Service ID</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-semibold text-on-surface">Inspector Government Email / Service ID</label>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickFillCredentials("LMO")}
+                        className="text-[10px] text-emerald-700 hover:underline font-semibold"
+                      >
+                        Auto-fill Demo
+                      </button>
+                    </div>
                     <input
-                      type="text"
+                      type="email"
+                      placeholder="e.g. rajesh.kumar.lmo@gov.in"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-primary"
+                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-emerald-600"
                       required
                     />
                   </div>
@@ -506,9 +593,10 @@ export default function LoginPage() {
                     <label className="block font-semibold text-on-surface mb-1">Security PIN / Password</label>
                     <input
                       type="password"
+                      placeholder="Enter inspector PIN or password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-primary"
+                      className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-emerald-600"
                       required
                     />
                   </div>
@@ -516,25 +604,45 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={isAuthenticating}
-                    className="w-full py-2.5 bg-primary text-white rounded-lg font-bold text-xs shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-2 mt-2"
+                    className="w-full py-2.5 bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-sm hover:bg-emerald-800 transition-all flex items-center justify-center gap-2 mt-2"
                   >
                     <span className="material-symbols-outlined text-sm">fact_check</span>
-                    Sign In to Field Docket &rarr;
+                    {isAuthenticating ? "Verifying Field Clearance..." : "Sign In to Field Docket →"}
                   </button>
                 </form>
+
+                <div className="p-2.5 rounded-lg bg-surface-container-low border border-outline-variant text-[11px] text-on-surface-variant flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-outline">badge</span>
+                  <span>
+                    Field Officers must sign in using verified departmental service credentials linked to their district circle.
+                  </span>
+                </div>
               </div>
             )}
 
             {/* TAB 3: BUSINESS OWNER (SIGN IN OR REGISTER) */}
             {selectedRole === "OWNER" && (
               <div>
+                {/* Institutional Commercial Licensee Banner */}
+                <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl text-xs mb-3">
+                  <div className="flex items-center gap-2 font-bold text-indigo-900">
+                    <span className="material-symbols-outlined text-indigo-700 text-lg">storefront</span>
+                    Commercial Licensee & Weighing Instrument Custodian Portal
+                  </div>
+                  <p className="text-[11px] text-indigo-900/70 mt-0.5">
+                    For Retail Merchants, Mandi Traders, Weighbridge Operators & Repairers
+                  </p>
+                </div>
+
                 {/* Sub-Switch: Sign In vs Register Business */}
                 <div className="flex p-1 bg-surface-container-low border border-outline-variant rounded-lg mb-4 text-xs font-semibold">
                   <button
                     type="button"
                     onClick={() => setOwnerMode("SIGN_IN")}
-                    className={`flex-1 py-1.5 rounded transition-all ${
-                      ownerMode === "SIGN_IN" ? "bg-white text-primary font-bold shadow-xs" : "text-outline"
+                    className={`flex-1 py-1.5 rounded transition-all text-center ${
+                      ownerMode === "SIGN_IN"
+                        ? "bg-white text-indigo-700 font-bold shadow-sm"
+                        : "text-on-surface-variant hover:text-on-surface"
                     }`}
                   >
                     Existing Merchant Sign In
@@ -542,8 +650,10 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setOwnerMode("REGISTER")}
-                    className={`flex-1 py-1.5 rounded transition-all ${
-                      ownerMode === "REGISTER" ? "bg-white text-primary font-bold shadow-xs" : "text-outline"
+                    className={`flex-1 py-1.5 rounded transition-all text-center ${
+                      ownerMode === "REGISTER"
+                        ? "bg-white text-indigo-700 font-bold shadow-sm"
+                        : "text-on-surface-variant hover:text-on-surface"
                     }`}
                   >
                     Register New Business
@@ -553,18 +663,23 @@ export default function LoginPage() {
                 {/* Sub-View A: Merchant Sign In */}
                 {ownerMode === "SIGN_IN" && (
                   <form onSubmit={handleOfficerSignIn} className="space-y-3 text-xs">
-                    <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant">
-                      <div className="font-bold text-on-surface">Ramesh Patel • Commercial Licensee</div>
-                      <div className="text-[11px] text-on-surface-variant">Green Valley Groceries (Shop 4, APMC Market Yard)</div>
-                    </div>
-
                     <div>
-                      <label className="block font-semibold text-on-surface mb-1">Registered Business Email / Mobile</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-on-surface">Registered Business Email</label>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickFillCredentials("OWNER")}
+                          className="text-[10px] text-indigo-700 hover:underline font-semibold"
+                        >
+                          Auto-fill Demo
+                        </button>
+                      </div>
                       <input
-                        type="text"
+                        type="email"
+                        placeholder="e.g. ramesh.patel@greenvalley.in"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-primary"
+                        className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-medium text-on-surface outline-none focus:border-indigo-600"
                         required
                       />
                     </div>
@@ -573,9 +688,10 @@ export default function LoginPage() {
                       <label className="block font-semibold text-on-surface mb-1">Password</label>
                       <input
                         type="password"
+                        placeholder="Enter your account password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-primary"
+                        className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface-container-lowest font-mono text-on-surface outline-none focus:border-indigo-600"
                         required
                       />
                     </div>
@@ -583,11 +699,21 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={isAuthenticating}
-                      className="w-full py-2.5 bg-primary text-white rounded-lg font-bold text-xs shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-2 mt-2"
+                      className="w-full py-2.5 bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-sm hover:bg-indigo-800 transition-all flex items-center justify-center gap-2 mt-2"
                     >
                       <span className="material-symbols-outlined text-sm">storefront</span>
-                      Sign In to Scale Portfolio &rarr;
+                      {isAuthenticating ? "Verifying Portfolio Access..." : "Sign In to Scale Portfolio →"}
                     </button>
+
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setOwnerMode("REGISTER")}
+                        className="text-[11px] text-indigo-700 hover:underline font-medium"
+                      >
+                        Don&apos;t have an account yet? Register your business here &rarr;
+                      </button>
+                    </div>
                   </form>
                 )}
 
@@ -595,26 +721,30 @@ export default function LoginPage() {
                 {ownerMode === "REGISTER" && (
                   <form onSubmit={handleOwnerRegister} className="space-y-2.5 text-xs">
                     <div>
-                      <label className="block font-semibold text-on-surface mb-1">Trading Enterprise / Store Name</label>
+                      <label className="block font-semibold text-on-surface mb-1">
+                        Trading Enterprise / Store Name <span className="text-error">*</span>
+                      </label>
                       <input
                         type="text"
                         placeholder="e.g. Metro Supermarket Logistics Pvt Ltd"
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
-                        className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary"
+                        className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600"
                         required
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block font-semibold text-on-surface mb-1">Contact Person</label>
+                        <label className="block font-semibold text-on-surface mb-1">
+                          Contact Person <span className="text-error">*</span>
+                        </label>
                         <input
                           type="text"
                           placeholder="e.g. Ramesh Patel"
                           value={contactPerson}
                           onChange={(e) => setContactPerson(e.target.value)}
-                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary"
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600"
                           required
                         />
                       </div>
@@ -625,7 +755,35 @@ export default function LoginPage() {
                           placeholder="+91 98234 11223"
                           value={regPhone}
                           onChange={(e) => setRegPhone(e.target.value)}
-                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary font-mono"
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-semibold text-on-surface mb-1">
+                          Official Email <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="merchant@business.in"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-on-surface mb-1">
+                          Password <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="Create password"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600 font-mono"
                           required
                         />
                       </div>
@@ -639,8 +797,7 @@ export default function LoginPage() {
                           placeholder="07AAAAA0000A1Z5"
                           value={gstin}
                           onChange={(e) => setGstin(e.target.value)}
-                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary font-mono"
-                          required
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600 font-mono"
                         />
                       </div>
                       <div>
@@ -648,7 +805,7 @@ export default function LoginPage() {
                         <select
                           value={circle}
                           onChange={(e) => setCircle(e.target.value)}
-                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary"
+                          className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600"
                         >
                           <option value="Delhi North District Circle">Delhi North District Circle</option>
                           <option value="Delhi Central Circle">Delhi Central Circle</option>
@@ -665,19 +822,28 @@ export default function LoginPage() {
                         placeholder="Shop 14, APMC Market Yard"
                         value={storeAddress}
                         onChange={(e) => setStoreAddress(e.target.value)}
-                        className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-primary"
-                        required
+                        className="w-full p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-indigo-600"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={isAuthenticating}
-                      className="w-full py-2.5 bg-secondary text-white rounded-lg font-bold text-xs shadow-sm hover:bg-secondary/90 transition-all flex items-center justify-center gap-2 mt-1"
+                      className="w-full py-2.5 bg-indigo-700 text-white rounded-lg font-bold text-xs shadow-sm hover:bg-indigo-800 transition-all flex items-center justify-center gap-2 mt-1"
                     >
                       <span className="material-symbols-outlined text-sm">how_to_reg</span>
-                      Complete Merchant Registration & Open Vault
+                      {isAuthenticating ? "Creating Commercial Account..." : "Complete Merchant Registration & Open Vault →"}
                     </button>
+
+                    <div className="text-center pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setOwnerMode("SIGN_IN")}
+                        className="text-[11px] text-indigo-700 hover:underline font-medium"
+                      >
+                        Already have an account? Sign in here &rarr;
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
@@ -686,25 +852,42 @@ export default function LoginPage() {
             {/* TAB 4: CITIZEN (PUBLIC CONSUMER ACCESS) */}
             {selectedRole === "CITIZEN" && (
               <div className="space-y-4">
-                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl text-center">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
+                <div className="p-4 bg-purple-50/80 border border-purple-200 rounded-xl text-center">
+                  <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto mb-2">
                     <span className="material-symbols-outlined text-2xl">qr_code_scanner</span>
                   </div>
-                  <h3 className="font-bold text-sm text-on-surface">Zero Login Required for Citizens</h3>
-                  <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                  <h3 className="font-bold text-sm text-purple-950">Zero Login Required for Citizens</h3>
+                  <p className="text-xs text-purple-900/70 mt-1 leading-relaxed">
                     Under the Legal Metrology Act, every consumer has the statutory right to verify scale calibration stamps and report suspicion anonymously.
                   </p>
                 </div>
 
-                <div className="space-y-2 text-xs">
+                <div className="space-y-2.5 text-xs">
                   <button
                     type="button"
                     onClick={handleCitizenAccess}
-                    className="w-full py-3 bg-primary text-white rounded-lg font-bold text-xs shadow-sm hover:bg-primary-container transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-purple-700 text-white rounded-lg font-bold text-xs shadow-sm hover:bg-purple-800 transition-all flex items-center justify-center gap-2"
                   >
                     <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
                     Open Public QR Scale Verification Card &rarr;
                   </button>
+
+                  <form onSubmit={handleCitizenCertSearch} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Enter Scale ID (e.g. DL-SCALE-001)"
+                      value={citizenCertId}
+                      onChange={(e) => setCitizenCertId(e.target.value)}
+                      className="flex-1 p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-purple-700 font-mono text-xs"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-2 bg-purple-100 border border-purple-300 text-purple-900 rounded-lg font-bold hover:bg-purple-200 transition-all text-xs flex items-center gap-1 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-sm">search</span>
+                      Verify
+                    </button>
+                  </form>
 
                   <Link
                     href="/qr/demo?action=report"
@@ -719,49 +902,53 @@ export default function LoginPage() {
           </div>
 
           {/* BOTTOM EVALUATOR 1-CLICK FAST PASS */}
-          <div className="pt-3 border-t border-outline-variant bg-surface-container-low/40 p-3.5 rounded-xl shrink-0 mt-auto">
+          <div className="pt-3 border-t border-outline-variant bg-surface-container-low/60 p-3.5 rounded-xl shrink-0 mt-auto">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-amber-600 text-sm">bolt</span>
                 Evaluator 1-Click Fast Pass
               </span>
-              <span className="text-[10px] text-outline font-mono">Demo Mode</span>
+              <span className="text-[10px] text-outline font-mono">Evaluation Sandbox</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <button
                 type="button"
+                id="btn-fastpass-admin"
                 onClick={() => handleQuickEvaluatorPass("ADMIN")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-[#002B5B] hover:bg-blue-50/50 transition-all text-left group"
               >
-                <div className="font-bold text-primary text-[11px] group-hover:underline">Controller</div>
+                <div className="font-bold text-[#002B5B] text-[11px] group-hover:underline">Controller</div>
                 <div className="text-[10px] text-outline truncate">Dr. S. K. Verma</div>
               </button>
 
               <button
                 type="button"
+                id="btn-fastpass-lmo"
                 onClick={() => handleQuickEvaluatorPass("LMO")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-emerald-700 hover:bg-emerald-50/50 transition-all text-left group"
               >
-                <div className="font-bold text-primary text-[11px] group-hover:underline">Inspector</div>
+                <div className="font-bold text-emerald-700 text-[11px] group-hover:underline">Inspector</div>
                 <div className="text-[10px] text-outline truncate">Rajesh Kumar</div>
               </button>
 
               <button
                 type="button"
+                id="btn-fastpass-owner"
                 onClick={() => handleQuickEvaluatorPass("OWNER")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-indigo-700 hover:bg-indigo-50/50 transition-all text-left group"
               >
-                <div className="font-bold text-primary text-[11px] group-hover:underline">Merchant</div>
+                <div className="font-bold text-indigo-700 text-[11px] group-hover:underline">Merchant</div>
                 <div className="text-[10px] text-outline truncate">Ramesh Patel</div>
               </button>
 
               <button
                 type="button"
+                id="btn-fastpass-citizen"
                 onClick={handleCitizenAccess}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-purple-700 hover:bg-purple-50/50 transition-all text-left group"
               >
-                <div className="font-bold text-primary text-[11px] group-hover:underline">Citizen</div>
+                <div className="font-bold text-purple-700 text-[11px] group-hover:underline">Citizen</div>
                 <div className="text-[10px] text-outline truncate">Public QR Scan</div>
               </button>
             </div>

@@ -146,9 +146,11 @@ export interface Complaint {
   complainantPhone?: string;
   complaintType: "SHORT_WEIGHT" | "BROKEN_SEAL" | "EXPIRED_CERTIFICATE" | "TAMPERING" | "OTHER";
   description: string;
-  status: "LOGGED" | "UNDER_INVESTIGATION" | "ACTION_TAKEN_RAID" | "DISMISSED";
+  status: "LOGGED" | "UNDER_INVESTIGATION" | "ACTION_TAKEN_RAID" | "DISMISSED" | "RESOLVED";
   impactOnRiskScore: number;
   createdAt: string;
+  resolutionNotes?: string;
+  investigationApplicationId?: string;
 }
 
 export interface User {

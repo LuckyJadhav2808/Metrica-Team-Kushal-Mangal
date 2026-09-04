@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMetrica } from "@/lib/store";
 import { UserRole } from "@/lib/types";
+import { EvaluationSandbox } from "@/components/evaluation-sandbox";
 
 interface HeaderProps {
   title?: string;
@@ -170,18 +171,18 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
       </div>
 
       {/* TIER 1: Universal Institutional Navigation Header */}
-      <header className="h-16 bg-surface border-b border-outline-variant px-4 lg:px-8 flex items-center justify-between z-30 shrink-0 sticky top-0 shadow-xs">
+      <header className="h-16 bg-surface border-b border-outline-variant px-3 sm:px-4 lg:px-6 flex items-center justify-between z-30 shrink-0 sticky top-0 shadow-xs">
         {/* Left: Breadcrumb & Portal Switcher Trigger */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           {/* Portal Switcher Dropdown */}
-          <div className="relative" ref={portalsRef}>
+          <div className="relative shrink-0" ref={portalsRef}>
             <button
               onClick={() => setIsPortalsOpen(!isPortalsOpen)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface-container-low hover:bg-surface-container-high border border-outline-variant rounded-lg text-xs font-semibold text-primary transition-colors"
               title="Switch Regulatory Portal"
             >
               <span className="material-symbols-outlined text-[18px]">apps</span>
-              <span className="hidden lg:inline">Portals</span>
+              <span className="hidden sm:inline">Portals</span>
               <span className="material-symbols-outlined text-[14px]">expand_more</span>
             </button>
 
@@ -224,19 +225,19 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
           </div>
 
           {/* Breadcrumb Hierarchy */}
-          <div className="hidden sm:flex items-center gap-2 text-xs">
-            <span className="font-semibold text-primary truncate max-w-[140px] xl:max-w-none">
-              Legal Metrology Division
+          <div className="hidden sm:flex items-center gap-1.5 text-xs min-w-0">
+            <span className="font-semibold text-primary shrink-0">
+              DoCA
             </span>
-            <span className="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-            <span className="text-on-surface font-bold truncate max-w-[160px] md:max-w-none">
+            <span className="material-symbols-outlined text-[14px] text-outline shrink-0">chevron_right</span>
+            <span className="text-on-surface font-bold truncate max-w-[110px] md:max-w-[160px] 2xl:max-w-none">
               {title || "National Portal"}
             </span>
           </div>
         </div>
 
         {/* Center: Universal Search */}
-        <div className="relative flex-1 max-w-sm mx-4 hidden md:block" ref={searchRef}>
+        <div className="relative flex-1 min-w-0 max-w-xs mx-2 lg:mx-3 hidden md:block" ref={searchRef}>
           <div className="relative flex items-center">
             <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
               search
@@ -306,17 +307,17 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
           {/* Notifications Trigger */}
-          <div className="relative" ref={notifRef}>
+          <div className="relative shrink-0" ref={notifRef}>
             <button
               onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors relative"
+              className="p-1.5 sm:p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors relative"
               title="Official Notifications"
             >
-              <span className="material-symbols-outlined text-[22px]">notifications</span>
+              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">notifications</span>
               {unreadNotifs.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-error text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
                   {unreadNotifs.length}
                 </span>
               )}
@@ -371,33 +372,38 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
             )}
           </div>
 
+          {/* SIH Evaluation Sandbox Toggle */}
+          <div className="shrink-0">
+            <EvaluationSandbox />
+          </div>
+
           {/* Settings Trigger */}
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors hidden sm:inline-flex"
+            className="p-1.5 sm:p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors hidden sm:inline-flex shrink-0"
             title="Jurisdiction & Portal Settings"
           >
             <span className="material-symbols-outlined text-[20px]">settings</span>
           </button>
 
           {/* Official User Profile Pill */}
-          <div className="relative" ref={profileRef}>
+          <div className="relative shrink-0" ref={profileRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2 pl-2 pr-3 py-1 bg-surface-container-low border border-outline-variant rounded-full hover:bg-surface-container-high transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-2.5 py-1 bg-surface-container-low border border-outline-variant rounded-full hover:bg-surface-container-high transition-colors shrink-0"
             >
-              <div className="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-sm">
+              <div className="w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-sm shrink-0">
                 {currentUser.avatarLetter}
               </div>
-              <div className="text-left hidden md:block">
-                <div className="text-xs font-bold text-on-surface leading-tight truncate max-w-[130px]">
+              <div className="text-left hidden lg:block min-w-0">
+                <div className="text-xs font-bold text-on-surface leading-tight truncate max-w-[80px] xl:max-w-[100px] 2xl:max-w-[130px]">
                   {currentUser.name}
                 </div>
-                <div className="text-[10px] text-outline leading-tight">
+                <div className="text-[10px] text-outline leading-tight truncate">
                   {currentUser.role}
                 </div>
               </div>
-              <span className="material-symbols-outlined text-[16px] text-outline">expand_more</span>
+              <span className="material-symbols-outlined text-[16px] text-outline shrink-0">expand_more</span>
             </button>
 
             {/* Profile Dropdown with 1-Click Role Switcher */}

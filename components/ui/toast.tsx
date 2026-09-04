@@ -56,8 +56,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ toast: toastMethods }}>
       {children}
 
-      {/* Floating Toast Notification Container */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none p-2 sm:p-0">
+      {/* Floating Toast Notification Container (Top-Right to avoid blocking action buttons) */}
+      <div className="fixed top-20 right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none p-2 sm:p-0">
         {toasts.map((t) => {
           const typeStyles = {
             success: {

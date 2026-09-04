@@ -175,6 +175,9 @@ interface MetricaContextType {
   assignOfficer: (applicationId: string, officerId: string, officerName: string, date: string, slot: string) => void;
   submitVerification: (verification: Omit<Verification, "id" | "inspectionDate">) => { verification: Verification; certificate?: Certificate };
   fileComplaint: (complaint: Omit<Complaint, "id" | "createdAt" | "status" | "impactOnRiskScore">) => Complaint;
+  updateComplaintStatus: (complaintId: string, status: Complaint["status"], resolutionNotes?: string) => void;
+  dispatchRaidForComplaint: (complaintId: string, officerId: string, officerName: string, date: string, slot: string, notes?: string) => VerificationApplication;
+  updateInstrumentFlag: (instrumentId: string, flag: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL", notes?: string, suspendTampered?: boolean) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   clearAllData: () => void;
@@ -213,7 +216,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const instRes = await fetch("/api/instruments");
       if (instRes.ok) {
         const dbInstruments = await instRes.json();
-        if (Array.isArray(dbInstruments) && dbInstruments.length > 0) {
+        if (Array.isArray(dbInstruments)) {
           const mappedInstruments: Instrument[] = dbInstruments.map((dbInst: any) => ({
             id: dbInst.id,
             digitalInstrumentId: dbInst.digitalInstrumentId,
@@ -263,11 +266,9 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
             }
           });
           if (dbCerts.length > 0) {
-            setCertificates((prev) => {
-              const existingIds = new Set(prev.map((c) => c.certificateNumber));
-              const newItems = dbCerts.filter((c) => !existingIds.has(c.certificateNumber));
-              return [...newItems, ...prev];
-            });
+            setCertificates(dbCerts);
+          } else if (dbInstruments.length === 0) {
+            setCertificates([]);
           }
         }
       }
@@ -276,7 +277,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const appRes = await fetch("/api/applications");
       if (appRes.ok) {
         const dbApps = await appRes.json();
-        if (Array.isArray(dbApps) && dbApps.length > 0) {
+        if (Array.isArray(dbApps)) {
           const mappedApps: VerificationApplication[] = dbApps.map((dbApp: any) => ({
             id: dbApp.id,
             applicationNumber: dbApp.applicationNumber,
@@ -307,7 +308,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const certRes = await fetch("/api/certificates");
       if (certRes.ok) {
         const fetchedCerts = await certRes.json();
-        if (Array.isArray(fetchedCerts) && fetchedCerts.length > 0) {
+        if (Array.isArray(fetchedCerts)) {
           setCertificates(fetchedCerts);
         }
       }
@@ -316,7 +317,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const cmpRes = await fetch("/api/complaints");
       if (cmpRes.ok) {
         const fetchedComplaints = await cmpRes.json();
-        if (Array.isArray(fetchedComplaints) && fetchedComplaints.length > 0) {
+        if (Array.isArray(fetchedComplaints)) {
           setComplaints(
             fetchedComplaints.map((c: any) => ({
               id: c.id,
@@ -337,7 +338,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const logRes = await fetch("/api/audit-logs");
       if (logRes.ok) {
         const fetchedLogs = await logRes.json();
-        if (Array.isArray(fetchedLogs) && fetchedLogs.length > 0) {
+        if (Array.isArray(fetchedLogs)) {
           setAuditLogs(
             fetchedLogs.map((l: any) => ({
               id: l.id,
@@ -361,21 +362,26 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
+      if (saved && saved.trim() !== "" && saved !== "undefined" && saved !== "null") {
         const parsed = JSON.parse(saved);
-        if (parsed.currentRole && GOVERNMENT_PERSONAS[parsed.currentRole as UserRole]) {
-          setCurrentUser(GOVERNMENT_PERSONAS[parsed.currentRole as UserRole]);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.currentRole && GOVERNMENT_PERSONAS[parsed.currentRole as UserRole]) {
+            setCurrentUser(GOVERNMENT_PERSONAS[parsed.currentRole as UserRole]);
+          }
+          if (Array.isArray(parsed.instruments)) setInstruments(parsed.instruments);
+          if (Array.isArray(parsed.applications)) setApplications(parsed.applications);
+          if (Array.isArray(parsed.verifications)) setVerifications(parsed.verifications);
+          if (Array.isArray(parsed.certificates)) setCertificates(parsed.certificates);
+          if (Array.isArray(parsed.complaints)) setComplaints(parsed.complaints);
+          if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
+          if (Array.isArray(parsed.auditLogs)) setAuditLogs(parsed.auditLogs);
         }
-        if (Array.isArray(parsed.instruments)) setInstruments(parsed.instruments);
-        if (Array.isArray(parsed.applications)) setApplications(parsed.applications);
-        if (Array.isArray(parsed.verifications)) setVerifications(parsed.verifications);
-        if (Array.isArray(parsed.certificates)) setCertificates(parsed.certificates);
-        if (Array.isArray(parsed.complaints)) setComplaints(parsed.complaints);
-        if (Array.isArray(parsed.notifications)) setNotifications(parsed.notifications);
-        if (Array.isArray(parsed.auditLogs)) setAuditLogs(parsed.auditLogs);
       }
     } catch (e) {
-      console.warn("Could not load from localStorage", e);
+      console.warn("Could not load from localStorage, clearing corrupted key:", e);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {}
     }
     setIsLoaded(true);
 
@@ -1065,6 +1071,157 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     return newComplaint;
   };
 
+  // Update Complaint Status & Official Findings
+  const updateComplaintStatus = (
+    complaintId: string,
+    status: Complaint["status"],
+    resolutionNotes?: string
+  ) => {
+    setComplaints((prev) =>
+      prev.map((c) =>
+        c.id === complaintId
+          ? {
+              ...c,
+              status,
+              resolutionNotes: resolutionNotes || c.resolutionNotes,
+            }
+          : c
+      )
+    );
+
+    const cmp = complaints.find((c) => c.id === complaintId);
+    if (cmp && (status === "RESOLVED" || status === "DISMISSED")) {
+      // De-escalate risk score on target instrument
+      setInstruments((prev) =>
+        prev.map((inst) => {
+          if (inst.digitalInstrumentId === cmp.digitalInstrumentId || inst.id === cmp.instrumentId) {
+            const newRisk = Math.max(10, inst.riskScore - 25);
+            return {
+              ...inst,
+              riskScore: newRisk,
+              priorityFlag: newRisk >= 75 ? "CRITICAL" : newRisk >= 50 ? "HIGH" : "LOW",
+              status: inst.status === "SUSPENDED_TAMPERED" && status === "RESOLVED" ? "VERIFIED_ACTIVE" : inst.status,
+            };
+          }
+          return inst;
+        })
+      );
+    }
+
+    logAudit("Complaint", complaintId, currentUser.name, currentUser.role, "UPDATE_COMPLAINT", `Grievance status updated to ${status}. ${resolutionNotes || ""}`);
+
+    pushNotification({
+      targetRole: "ADMIN",
+      type: "STATUS_CHANGE",
+      title: "Grievance Status Updated",
+      message: `Complaint ${complaintId} marked as ${status}.`,
+      severity: "LOW",
+    });
+  };
+
+  // Dispatch Emergency LMO Raid for Citizen Grievance
+  const dispatchRaidForComplaint = (
+    complaintId: string,
+    officerId: string,
+    officerName: string,
+    date: string,
+    slot: string,
+    notes?: string
+  ): VerificationApplication => {
+    const cmp = complaints.find((c) => c.id === complaintId);
+    const targetInst = instruments.find(
+      (i) => i.id === cmp?.instrumentId || i.digitalInstrumentId === cmp?.digitalInstrumentId
+    );
+
+    const raidAppId = "app-raid-" + Date.now();
+    const raidAppNum = "RAID-2026-" + Math.floor(1000 + Math.random() * 9000);
+
+    const newRaidApp: VerificationApplication = {
+      id: raidAppId,
+      applicationNumber: raidAppNum,
+      instrumentId: targetInst?.id || cmp?.instrumentId || "inst-target",
+      instrumentSerial: targetInst?.serialNumber || "SURPRISE-RAID",
+      instrumentCategory: targetInst?.category || "ELECTRONIC_COUNTER_SCALE",
+      applicantName: targetInst?.ownerName || "Statutory Enforcement Target",
+      applicantPhone: "+91 11 2338 0000",
+      jurisdictionCircle: targetInst?.jurisdictionCircle || "Delhi North District Circle",
+      type: "POST_REPAIR_VERIFICATION",
+      status: "SCHEDULED",
+      readinessScore: 100,
+      statutoryFee: 0,
+      penaltyFee: 5000,
+      paymentStatus: "PAID",
+      assignedOfficerId: officerId,
+      assignedOfficerName: officerName,
+      scheduledDate: date,
+      scheduledSlot: slot,
+      createdAt: new Date().toISOString(),
+    };
+
+    setApplications((prev) => [newRaidApp, ...prev]);
+
+    setComplaints((prev) =>
+      prev.map((c) =>
+        c.id === complaintId
+          ? {
+              ...c,
+              status: "ACTION_TAKEN_RAID",
+              investigationApplicationId: raidAppId,
+              resolutionNotes: notes || `Surprise inspection dispatched under Section 25. Assigned to ${officerName}.`,
+            }
+          : c
+      )
+    );
+
+    logAudit("Enforcement", raidAppNum, currentUser.name, currentUser.role, "DISPATCH_RAID", `Surprise raid dispatched on scale ${targetInst?.digitalInstrumentId || cmp?.digitalInstrumentId}. Officer: ${officerName}`);
+
+    pushNotification({
+      targetRole: "LMO",
+      type: "ASSIGNMENT",
+      title: "EMERGENCY: Enforcement Raid Dispatched",
+      message: `Priority raid scheduled for ${targetInst?.digitalInstrumentId || "scale"} on ${date} (${slot}). Reason: Consumer Grievance.`,
+      severity: "CRITICAL",
+    });
+
+    return newRaidApp;
+  };
+
+  // Update Instrument Priority Flag & Section 25 Stop-Use Status
+  const updateInstrumentFlag = (
+    instrumentId: string,
+    flag: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+    notes?: string,
+    suspendTampered: boolean = false
+  ) => {
+    setInstruments((prev) =>
+      prev.map((inst) => {
+        if (inst.id === instrumentId || inst.digitalInstrumentId === instrumentId) {
+          return {
+            ...inst,
+            priorityFlag: flag,
+            status: suspendTampered
+              ? "SUSPENDED_TAMPERED"
+              : flag === "LOW" && inst.status === "SUSPENDED_TAMPERED"
+              ? "VERIFIED_ACTIVE"
+              : inst.status,
+            riskScore: flag === "CRITICAL" ? 95 : flag === "HIGH" ? 75 : flag === "MEDIUM" ? 45 : 15,
+          };
+        }
+        return inst;
+      })
+    );
+
+    logAudit("Instrument", instrumentId, currentUser.name, currentUser.role, "UPDATE_FLAG", `Flag updated to ${flag}. Stop-use suspended: ${suspendTampered}. ${notes || ""}`);
+
+    pushNotification({
+      targetRole: "ADMIN",
+      type: "STATUS_CHANGE",
+      title: suspendTampered ? "Section 25 Stop-Use Notice Issued" : "Instrument Risk Flag Updated",
+      message: `Instrument ${instrumentId} updated to ${flag} priority. ${notes || ""}`,
+      severity: flag === "CRITICAL" ? "CRITICAL" : "MEDIUM",
+    });
+  };
+
   const clearAllData = () => {
     setInstruments([]);
     setApplications([]);
@@ -1101,6 +1258,9 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         assignOfficer,
         submitVerification,
         fileComplaint,
+        updateComplaintStatus,
+        dispatchRaidForComplaint,
+        updateInstrumentFlag,
         markNotificationRead,
         markAllNotificationsRead,
         clearAllData,

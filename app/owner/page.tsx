@@ -99,7 +99,7 @@ function OwnerDashboardContent() {
       <InstitutionalNavigation activeSection={activeTab} />
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background">
+      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0">
         <InstitutionalHeader title="Merchant & Owner Workspace" />
 
         {/* Executive Sub-Section Header Tier */}

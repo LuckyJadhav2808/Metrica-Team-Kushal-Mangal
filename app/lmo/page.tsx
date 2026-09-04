@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { InstitutionalNavigation } from "@/components/navigation";
 import { InstitutionalHeader } from "@/components/header";
@@ -12,6 +12,21 @@ import { Certificate } from "@/lib/types";
 export default function LMOFieldVerificationPage() {
   const { applications, instruments, submitVerification, currentUser, loginAs } = useMetrica();
   const toast = useToast();
+
+  // Dynamic Browser Network Connectivity State
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const assignedCases = applications.filter((a) => a.status === "SCHEDULED" || a.status === "IN_PROGRESS");
   const [selectedAppId, setSelectedAppId] = useState<string>(assignedCases.length > 0 ? assignedCases[0].id : "");
@@ -55,7 +70,7 @@ export default function LMOFieldVerificationPage() {
     return (
       <div className="bg-surface h-full flex overflow-hidden font-sans">
         <InstitutionalNavigation activeSection="docket" />
-        <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background">
+        <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
           <InstitutionalHeader title="Field Officer Inspection Workspace" />
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="max-w-md w-full bg-surface border border-outline-variant rounded-2xl p-6 shadow-xl text-center space-y-4">
@@ -179,14 +194,14 @@ export default function LMOFieldVerificationPage() {
       <InstitutionalNavigation activeSection="docket" />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background">
+      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
         {/* Universal Top Header with Masthead */}
         <InstitutionalHeader title="Field Officer Inspection Workspace" />
 
         {/* Dynamic Officer & Circle Status Banner */}
         <div className="bg-primary text-white py-2 px-4 flex items-center justify-between text-xs shrink-0 shadow-xs">
           <div className="flex items-center gap-2 truncate">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
             <span className="font-semibold text-xs truncate">
               Officer: {currentUser.name} (Badge: {currentUser.officerBadgeId || "LMO-DL-N-884"})
             </span>
@@ -196,316 +211,374 @@ export default function LMOFieldVerificationPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] shrink-0">
-            <div className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded">
-              <span className="material-symbols-outlined text-[14px]">cloud_done</span>
-              <span>Offline Cache Synced</span>
+          <div className="flex items-center gap-2 text-[11px] shrink-0">
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+                isOnline
+                  ? "bg-white/15 text-emerald-200 border border-emerald-400/30"
+                  : "bg-amber-500/25 text-amber-200 border border-amber-400/30"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[13px]">
+                {isOnline ? "cloud_done" : "cloud_off"}
+              </span>
+              <span>{isOnline ? "eMaap Realtime Connected" : "Offline Mode (Local Cache)"}</span>
             </div>
           </div>
         </div>
 
-        {/* 2-Column Independent Scroll Workspace */}
-        <div className="flex-1 overflow-hidden p-4 lg:p-6 flex flex-col lg:flex-row gap-5">
-          {/* COLUMN 1: Pinned Today's Assigned Docket (Independent Scroll) */}
-          <div className="lg:w-4/12 xl:w-3/12 h-full flex flex-col bg-surface border border-outline-variant rounded-2xl shadow-sm overflow-hidden shrink-0">
-            {/* Docket Header */}
-            <div className="p-4 border-b border-outline-variant bg-surface-container-low flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">calendar_today</span>
-                <h3 className="font-bold text-xs text-on-surface">Today's Inspection Docket</h3>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">
-                {assignedCases.length} Cases
-              </span>
+        {/* TOP DOCKET SELECTOR & WORKING STANDARDS RIBBON */}
+        <div className="bg-surface-container-low border-b border-outline-variant px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+          {/* Left: Assigned Cases Scrollable Pills */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto py-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-on-surface shrink-0 pr-1">
+              <span className="material-symbols-outlined text-primary text-[18px]">assignment</span>
+              <span>Assigned Docket ({assignedCases.length}):</span>
             </div>
 
-            {/* Scrollable Docket Case List */}
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
-              {assignedCases.length === 0 ? (
-                <div className="p-8 text-center text-on-surface-variant text-xs">
-                  <span className="material-symbols-outlined text-3xl text-outline mb-2">event_available</span>
-                  <p className="font-bold text-on-surface">Docket is Clear</p>
-                  <p className="text-[11px] text-outline mt-1">No pending field inspections assigned in this circle.</p>
-                  <Link href="/admin" className="mt-3 inline-block text-xs font-semibold text-primary hover:underline">
-                    Assign from Queue &rarr;
-                  </Link>
-                </div>
-              ) : (
-                assignedCases.map((c) => {
-                  const inst = instruments.find((i) => i.id === c.instrumentId);
+            {assignedCases.length === 0 ? (
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                <span className="text-[11px] bg-surface border border-outline-variant px-2.5 py-1 rounded-lg">
+                  No pending field inspections assigned in this circle
+                </span>
+                <Link href="/admin" className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-0.5">
+                  Assign from Queue &rarr;
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {assignedCases.map((c) => {
                   const isSelected = c.id === currentApp?.id;
-
                   return (
-                    <div
+                    <button
                       key={c.id}
+                      type="button"
                       onClick={() => setSelectedAppId(c.id)}
-                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all shrink-0 ${
                         isSelected
-                          ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/30"
-                          : "border-outline-variant hover:border-primary/50 hover:bg-surface-container-low"
+                          ? "bg-primary text-white border-primary shadow-xs"
+                          : "bg-surface text-on-surface border-outline-variant hover:border-primary/50 hover:bg-surface-container"
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <span className="font-mono font-bold text-primary text-[11px]">{c.applicationNumber}</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold uppercase">
-                          {c.status}
-                        </span>
-                      </div>
-                      <div className="font-bold text-on-surface mt-1">{c.applicantName}</div>
-                      <div className="text-[11px] text-outline truncate">{inst?.ownerAddress || "Delhi Mandi"}</div>
-                      <div className="mt-2 pt-2 border-t border-outline-variant/60 flex items-center justify-between text-[10px] text-on-surface-variant">
-                        <span>SN: {c.instrumentSerial}</span>
-                        <span className="font-semibold text-primary">{c.scheduledSlot || "Morning Slot"}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Docket Footer: Working Standards Kit Health */}
-            <div className="p-3 border-t border-outline-variant bg-surface-container-low shrink-0 text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-on-surface mb-1">
-                <span className="material-symbols-outlined text-secondary text-[16px]">verified</span>
-                Standards Kit #DL-WS-04
-              </div>
-              <div className="flex justify-between text-[10px] text-outline">
-                <span>NPL India (NABL Traceable)</span>
-                <span className="text-secondary font-semibold">Valid Nov 2026</span>
-              </div>
-            </div>
-          </div>
-
-          {/* COLUMN 2: Active Verification Canvas (Independent Scroll + Sticky Verdict Footer) */}
-          <div className="lg:w-8/12 xl:w-9/12 h-full flex flex-col bg-surface border border-outline-variant rounded-2xl shadow-sm overflow-hidden">
-            {/* Scrollable Sub-Sections Container */}
-            <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-              {/* Header Card: Scale Identity & Optical Camera Plate OCR */}
-              <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 lg:p-5 shadow-xs">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                  <div className="w-20 h-20 rounded-xl bg-surface-container-high border border-outline-variant flex items-center justify-center relative shrink-0">
-                    <span className="material-symbols-outlined text-3xl text-outline">scale</span>
-                    {ocrVerified && (
-                      <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center shadow-xs">
-                        <span className="material-symbols-outlined text-xs">check</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 text-center sm:text-left">
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                      <span className="text-xs px-2 py-0.5 rounded bg-surface-container font-mono font-bold text-primary">
-                        {currentInst ? currentInst.digitalInstrumentId : "IND-MET-2026-X8829"}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-surface-variant text-on-surface-variant font-semibold uppercase">
-                        {currentInst?.category.replace(/_/g, " ") || "Commercial Bench Scale"}
-                      </span>
-                    </div>
-
-                    <h2 className="font-display text-lg font-bold text-on-surface">
-                      {currentInst?.modelName || "Precision Commercial Scale"}
-                    </h2>
-                    <p className="text-xs text-on-surface-variant mt-0.5">
-                      Target Stamped Serial: <span className="font-mono font-bold text-on-surface">{currentInst?.serialNumber || "SN-8829-X"}</span> • Max: {currentInst?.maxCapacity || 30} kg (Class III)
-                    </p>
-                    <p className="text-[11px] text-outline mt-0.5">
-                      Trading Premises: {currentInst?.ownerName || "Merchant Retailer"} ({currentInst?.ownerAddress || "Shop 12, APMC Yard"})
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setIsCameraModalOpen(true)}
-                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95 ${
-                          ocrVerified
-                            ? "bg-secondary text-white"
-                            : "bg-primary text-white hover:bg-primary-container"
+                      <span className="font-mono font-bold text-[11px]">{c.applicationNumber}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                          isSelected ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
                         }`}
                       >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {ocrVerified ? "check_circle" : "photo_camera"}
-                        </span>
-                        {ocrVerified ? "Stamped Plate OCR Verified ✓ (99.4%)" : "Scan Stamped Nameplate (Camera OCR)"}
-                      </button>
+                        {c.status}
+                      </span>
+                      <span className="truncate max-w-[120px] font-semibold">{c.applicantName}</span>
+                      <span className="opacity-70 text-[10px] hidden sm:inline font-mono">({c.scheduledSlot || "Morning"})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right: Working Standards Kit Traceability Health Pill */}
+          <div className="flex items-center gap-2 shrink-0 bg-surface border border-outline-variant px-3 py-1.5 rounded-xl shadow-2xs">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-on-surface">
+              <span className="material-symbols-outlined text-secondary text-[17px]">verified</span>
+              <span>Standards Kit #DL-WS-04</span>
+            </div>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary/10 text-secondary font-bold font-mono">
+              NPL India Traceable (Valid Nov 2026)
+            </span>
+          </div>
+        </div>
+
+        {/* 2-STATION DUAL-COLUMN WORKSPACE */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-7xl mx-auto items-start">
+            {/* STATION 1: Physical Inspection & Identification Station */}
+            <div className="space-y-4">
+              {/* 1.1 Instrument Dossier & Camera OCR */}
+              <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xl">scale</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-outline font-mono">Station 1 • Physical Dossier</span>
+                      <h3 className="font-bold text-sm text-on-surface">Instrument Identification</h3>
                     </div>
                   </div>
-                </div>
-              </section>
-
-              {/* SUB-SECTION 1: Physical Integrity & Statutory Markings */}
-              <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-xs">
-                <div className="bg-surface-container-low px-4 py-2.5 border-b border-outline-variant flex items-center justify-between">
-                  <h3 className="font-bold text-xs text-on-surface uppercase tracking-wider flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[18px]">view_in_ar</span>
-                    1. Physical Integrity & Statutory Markings
-                  </h3>
-                  <span className="text-[10px] text-outline font-mono">Rule 12 Compliance</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-container font-mono font-bold text-primary border border-outline-variant">
+                    {currentInst ? currentInst.digitalInstrumentId : "IND-MET-2026-X8829"}
+                  </span>
                 </div>
 
-                <div className="p-4 space-y-3 text-xs">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <label className="flex items-start gap-2.5 p-2 rounded-lg border border-outline-variant/60 bg-surface cursor-pointer hover:bg-surface-container-low">
-                      <input
-                        type="checkbox"
-                        checked={housingIntact}
-                        onChange={(e) => setHousingIntact(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
-                      />
-                      <span className="text-on-surface leading-snug">Housing structurally intact with zero tampering apertures.</span>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 p-2 rounded-lg border border-outline-variant/60 bg-surface cursor-pointer hover:bg-surface-container-low">
-                      <input
-                        type="checkbox"
-                        checked={levelCentered}
-                        onChange={(e) => setLevelCentered(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
-                      />
-                      <span className="text-on-surface leading-snug">Spirit level bubble is centered in the alignment ring.</span>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 p-2 rounded-lg border border-outline-variant/60 bg-surface cursor-pointer hover:bg-surface-container-low">
-                      <input
-                        type="checkbox"
-                        checked={zeroTracking}
-                        onChange={(e) => setZeroTracking(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
-                      />
-                      <span className="text-on-surface leading-snug">Automatic zero-setting & tare mechanisms return to 0.000 kg.</span>
-                    </label>
+                <div className="bg-surface-container-low border border-outline-variant/70 rounded-xl p-3.5 space-y-2.5 text-xs">
+                  <div className="flex items-baseline justify-between">
+                    <h4 className="font-bold text-sm text-on-surface">
+                      {currentInst?.modelName || "Precision Commercial Scale"}
+                    </h4>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-surface text-on-surface-variant font-medium border border-outline-variant uppercase">
+                      {currentInst?.category.replace(/_/g, " ") || "Commercial Bench Scale"}
+                    </span>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">Inspector Physical Notes</label>
-                    <input
-                      type="text"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="e.g. Lead wire seal intact, no rust on weighing pan, leveling footpads secure..."
-                      className="w-full p-2 bg-surface-container-low border border-outline-variant rounded text-xs outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* SUB-SECTION 2: Accuracy Test & Statutory MPE Calculator */}
-              <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-xs">
-                <div className="bg-surface-container-low px-4 py-2.5 border-b border-outline-variant flex items-center justify-between">
-                  <h3 className="font-bold text-xs text-on-surface uppercase tracking-wider flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[18px]">balance</span>
-                    2. Accuracy Test & Maximum Permissible Error (MPE)
-                  </h3>
-                  <span className="text-[10px] text-outline font-mono">Seventh Schedule (Class III)</span>
-                </div>
-
-                <div className="p-4 space-y-3 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                     <div>
-                      <label className="block font-semibold text-on-surface mb-1">Working Standard Applied (kg)</label>
+                      <span className="text-outline block text-[10px]">Target Serial:</span>
+                      <span className="font-mono font-bold text-on-surface">{currentInst?.serialNumber || "SN-8829-X"}</span>
+                    </div>
+                    <div>
+                      <span className="text-outline block text-[10px]">Max Capacity / Class:</span>
+                      <span className="font-semibold text-on-surface">{currentInst?.maxCapacity || 30} kg (Class III)</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-outline block text-[10px]">Trading Premises:</span>
+                      <span className="font-medium text-on-surface">{currentInst?.ownerName || "Merchant Retailer"} • {currentInst?.ownerAddress || "Shop 12, APMC Mandi"}</span>
+                    </div>
+                  </div>
+
+                  {/* Camera OCR Trigger */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraModalOpen(true)}
+                      className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold shadow-2xs transition-all active:scale-98 ${
+                        ocrVerified
+                          ? "bg-secondary text-white hover:bg-secondary/90"
+                          : "bg-primary text-white hover:bg-primary-container"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        {ocrVerified ? "check_circle" : "photo_camera"}
+                      </span>
+                      <span>{ocrVerified ? "Plate OCR Verified ✓ (Serial Matched 99.4%)" : "Scan Nameplate Serial (Camera OCR)"}</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* 1.2 Rule 12 Physical Integrity Checklist */}
+              <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-800 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xl">fact_check</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-outline font-mono">Statutory Checks</span>
+                      <h3 className="font-bold text-sm text-on-surface">Physical Integrity (Rule 12)</h3>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-outline font-mono bg-surface-container px-2 py-0.5 rounded">3/3 Required</span>
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={housingIntact}
+                      onChange={(e) => setHousingIntact(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
+                    />
+                    <span className="text-on-surface leading-snug">
+                      <strong>Housing Integrity:</strong> Structurally intact with zero unauthorized apertures or tampering.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={levelCentered}
+                      onChange={(e) => setLevelCentered(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
+                    />
+                    <span className="text-on-surface leading-snug">
+                      <strong>Spirit Level Alignment:</strong> Leveling bubble is centered inside the central alignment ring.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest cursor-pointer hover:bg-surface-container-low transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={zeroTracking}
+                      onChange={(e) => setZeroTracking(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-outline-variant text-primary"
+                    />
+                    <span className="text-on-surface leading-snug">
+                      <strong>Zero-Setting & Tare:</strong> Mechanisms reliably return display reading to 0.000 kg.
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              {/* 1.3 Photographic Audit Evidence */}
+              <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-700 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xl">camera_enhance</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-outline font-mono">Geo-Tagged Evidence</span>
+                      <h3 className="font-bold text-sm text-on-surface">Photographic Audit Trail</h3>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-outline font-mono">Rule 16 Audit Record</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 text-xs">
+                  {/* Photo 1: Plate */}
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePhoto("plate")}
+                    className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
+                      capturedPhotos.plate ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary bg-surface-container-lowest"
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined text-2xl mb-1 ${capturedPhotos.plate ? "text-secondary" : "text-outline"}`}>
+                      badge
+                    </span>
+                    <div className="font-bold text-on-surface text-[11px] leading-tight">1. Nameplate</div>
+                    <div className="text-[10px] text-outline mt-0.5">
+                      {capturedPhotos.plate ? "Attached ✓" : "Attach Photo"}
+                    </div>
+                  </button>
+
+                  {/* Photo 2: Wire Seal */}
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePhoto("seal")}
+                    className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
+                      capturedPhotos.seal ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary bg-surface-container-lowest"
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined text-2xl mb-1 ${capturedPhotos.seal ? "text-secondary" : "text-outline"}`}>
+                      lock
+                    </span>
+                    <div className="font-bold text-on-surface text-[11px] leading-tight">2. Lead Seal</div>
+                    <div className="text-[10px] text-outline mt-0.5">
+                      {capturedPhotos.seal ? "Attached ✓" : "Attach Photo"}
+                    </div>
+                  </button>
+
+                  {/* Photo 3: Standard Weights */}
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePhoto("weights")}
+                    className={`p-3 border-2 border-dashed rounded-xl text-center transition-all ${
+                      capturedPhotos.weights ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary bg-surface-container-lowest"
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined text-2xl mb-1 ${capturedPhotos.weights ? "text-secondary" : "text-outline"}`}>
+                      fitness_center
+                    </span>
+                    <div className="font-bold text-on-surface text-[11px] leading-tight">3. Pan Load</div>
+                    <div className="text-[10px] text-outline mt-0.5">
+                      {capturedPhotos.weights ? "Attached ✓" : "Attach Photo"}
+                    </div>
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            {/* STATION 2: Metrological Accuracy & Sealing Station */}
+            <div className="space-y-4">
+              {/* 2.1 Accuracy Test & MPE Calculator */}
+              <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xl">balance</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-outline font-mono">Station 2 • Metrology Engine</span>
+                      <h3 className="font-bold text-sm text-on-surface">Maximum Permissible Error (MPE)</h3>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-outline font-mono bg-surface-container px-2 py-0.5 rounded">7th Schedule Class III</span>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
+                      <label className="block text-[11px] font-bold text-on-surface mb-1">Working Standard Applied (kg)</label>
                       <input
                         type="number"
                         step="0.001"
                         value={nominalLoad}
                         onChange={(e) => setNominalLoad(e.target.value)}
-                        className="w-full p-2 bg-surface-container-low border border-outline-variant rounded font-mono font-bold text-xs outline-none focus:border-primary"
+                        className="w-full p-2 bg-surface border border-outline-variant rounded-lg font-mono font-bold text-xs text-on-surface outline-none focus:border-primary"
                       />
+                      <span className="text-[10px] text-outline mt-1 block">NPL Traceable Standard</span>
                     </div>
-                    <div>
-                      <label className="block font-semibold text-on-surface mb-1">Observed Display Indication (kg)</label>
+
+                    <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/60">
+                      <label className="block text-[11px] font-bold text-on-surface mb-1">Observed Display Indication (kg)</label>
                       <input
                         type="number"
                         step="0.001"
                         value={observedLoad}
                         onChange={(e) => setObservedLoad(e.target.value)}
-                        className="w-full p-2 bg-surface-container-low border border-outline-variant rounded font-mono font-bold text-xs outline-none focus:border-primary"
+                        className="w-full p-2 bg-surface border border-outline-variant rounded-lg font-mono font-bold text-xs text-on-surface outline-none focus:border-primary"
                       />
+                      <span className="text-[10px] text-outline mt-1 block">Instrument LCD Readout</span>
                     </div>
                   </div>
 
-                  {/* Real-time MPE Verdict Chip */}
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                    isWithinTolerance
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                      : "bg-red-50 border-red-200 text-red-900"
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg">
-                        {isWithinTolerance ? "check_circle" : "error"}
-                      </span>
-                      <div>
-                        <div className="font-bold text-xs">
-                          {isWithinTolerance ? "WITHIN LEGAL MPE TOLERANCE (STATUTORY PASS)" : "EXCEEDS LEGAL MPE TOLERANCE (STATUTORY REJECTION)"}
-                        </div>
-                        <div className="text-[11px] opacity-80">
-                          Calculated Deviation: <span className="font-mono font-bold">{calculatedError.toFixed(4)} kg</span> (Legal Maximum Permissible Error: &plusmn;{mpeLimit} kg)
+                  {/* Real-Time MPE Calculator Verdict Card */}
+                  <div
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      isWithinTolerance
+                        ? "bg-emerald-50/80 border-emerald-300 text-emerald-900"
+                        : "bg-red-50/80 border-red-300 text-red-900"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <span className="material-symbols-outlined text-xl shrink-0 mt-0.5">
+                          {isWithinTolerance ? "check_circle" : "error"}
+                        </span>
+                        <div>
+                          <div className="font-bold text-xs">
+                            {isWithinTolerance
+                              ? "WITHIN STATUTORY TOLERANCE (PASS)"
+                              : "EXCEEDS STATUTORY TOLERANCE (FAIL)"}
+                          </div>
+                          <div className="text-[11px] mt-0.5 leading-snug">
+                            Calculated Deviation: <span className="font-mono font-bold">{calculatedError.toFixed(4)} kg</span>
+                            <span className="opacity-80"> (Statutory MPE Threshold: &plusmn;{mpeLimit} kg)</span>
+                          </div>
                         </div>
                       </div>
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase shrink-0 ${
+                          isWithinTolerance ? "bg-emerald-200 text-emerald-950 font-mono" : "bg-red-200 text-red-950 font-mono"
+                        }`}
+                      >
+                        {isWithinTolerance ? "PASS" : "FAIL"}
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                      isWithinTolerance ? "bg-emerald-200 text-emerald-900" : "bg-red-200 text-red-900"
-                    }`}>
-                      {isWithinTolerance ? "PASS" : "FAIL"}
-                    </span>
                   </div>
                 </div>
               </section>
 
-              {/* SUB-SECTION 3: Geo-Tagged Photographic Evidence & Hologram Seal */}
-              <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-xs">
-                <div className="bg-surface-container-low px-4 py-2.5 border-b border-outline-variant flex items-center justify-between">
-                  <h3 className="font-bold text-xs text-on-surface uppercase tracking-wider flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[18px]">photo_camera</span>
-                    3. Geo-Tagged Photographic Evidence & Wire Seal
-                  </h3>
-                  <span className="text-[10px] text-outline font-mono">Mandatory Audit Trial</span>
-                </div>
-
-                <div className="p-4 space-y-3 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Photo 1: Plate */}
-                    <div
-                      onClick={() => handleTogglePhoto("plate")}
-                      className={`p-3 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${
-                        capturedPhotos.plate ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-2xl text-outline mb-1">badge</span>
-                      <div className="font-bold text-on-surface text-[11px]">1. Nameplate & Serial</div>
-                      <div className="text-[10px] text-outline mt-0.5">
-                        {capturedPhotos.plate ? "Attached ✓ (Geo-Tagged)" : "Click to Attach"}
-                      </div>
+              {/* 2.2 Wire Seal & Inspector Notes */}
+              <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-700 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-xl">fingerprint</span>
                     </div>
-
-                    {/* Photo 2: Wire Seal */}
-                    <div
-                      onClick={() => handleTogglePhoto("seal")}
-                      className={`p-3 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${
-                        capturedPhotos.seal ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-2xl text-outline mb-1">lock</span>
-                      <div className="font-bold text-on-surface text-[11px]">2. Physical Lead Seal</div>
-                      <div className="text-[10px] text-outline mt-0.5">
-                        {capturedPhotos.seal ? "Attached ✓ (Geo-Tagged)" : "Click to Attach"}
-                      </div>
-                    </div>
-
-                    {/* Photo 3: Standard Weights */}
-                    <div
-                      onClick={() => handleTogglePhoto("weights")}
-                      className={`p-3 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${
-                        capturedPhotos.weights ? "border-secondary bg-secondary/5" : "border-outline-variant hover:border-primary"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-2xl text-outline mb-1">fitness_center</span>
-                      <div className="font-bold text-on-surface text-[11px]">3. Standard Pan Load</div>
-                      <div className="text-[10px] text-outline mt-0.5">
-                        {capturedPhotos.weights ? "Attached ✓ (Geo-Tagged)" : "Click to Attach"}
-                      </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-outline font-mono">Physical Sealing & Audit</span>
+                      <h3 className="font-bold text-sm text-on-surface">Security Seal & Legal Remarks</h3>
                     </div>
                   </div>
+                  <span className="text-[10px] text-outline font-mono">Sec 24 Legal Metrology</span>
+                </div>
 
+                <div className="space-y-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-semibold text-on-surface-variant mb-1">
+                    <label className="block text-[11px] font-bold text-on-surface mb-1">
                       Applied Holographic Lead Wire Seal Number
                     </label>
                     <input
@@ -513,48 +586,68 @@ export default function LMOFieldVerificationPage() {
                       value={sealWireNumber}
                       onChange={(e) => setSealWireNumber(e.target.value)}
                       placeholder="e.g. SEAL-DL-2026-9921"
-                      className="w-full p-2 bg-surface-container-low border border-outline-variant rounded font-mono font-bold text-xs outline-none focus:border-primary"
+                      className="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg font-mono font-bold text-xs outline-none focus:border-primary text-on-surface"
                       required
+                    />
+                    <span className="text-[10px] text-outline mt-1 block">
+                      Tamper-evident barcode seal permanently linked in the national verification ledger.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-on-surface mb-1">
+                      Inspector Summary Notes & Observations
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. Physical calibration completed on site as per Legal Metrology (General) Rules 2011. Leveling verified..."
+                      className="w-full p-2.5 bg-surface-container-low border border-outline-variant rounded-lg text-xs outline-none focus:border-primary text-on-surface resize-none"
                     />
                   </div>
                 </div>
               </section>
             </div>
+          </div>
+        </div>
 
-            {/* STICKY BOTTOM STATUTORY VERDICT FOOTER (Always Visible!) */}
-            <div className="p-3.5 lg:p-4 bg-surface-container-low border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3 text-xs text-on-surface-variant truncate">
-                <span className="flex items-center gap-1 font-semibold">
-                  <span className={`w-2 h-2 rounded-full ${ocrVerified ? "bg-emerald-500" : "bg-amber-400"}`} />
-                  OCR: {ocrVerified ? "Verified" : "Pending"}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 font-semibold">
-                  <span className={`w-2 h-2 rounded-full ${isWithinTolerance ? "bg-emerald-500" : "bg-red-500"}`} />
-                  MPE: {isWithinTolerance ? "Passed" : "Failed"}
-                </span>
-              </div>
+        {/* STICKY BOTTOM STATUTORY VERDICT CONSOLE (Unobstructed & Always Available) */}
+        <div className="p-3.5 lg:p-4 bg-surface-container-low border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 text-xs text-on-surface-variant truncate">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className={`w-2.5 h-2.5 rounded-full ${ocrVerified ? "bg-emerald-500" : "bg-amber-400"}`} />
+              OCR: {ocrVerified ? "Verified (99.4%)" : "Pending Scan"}
+            </span>
+            <span className="opacity-40">•</span>
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className={`w-2.5 h-2.5 rounded-full ${isWithinTolerance ? "bg-emerald-500" : "bg-red-500"}`} />
+              MPE: {isWithinTolerance ? "Within Limits" : "Tolerance Exceeded"}
+            </span>
+            <span className="opacity-40 hidden md:inline">•</span>
+            <span className="text-[11px] text-outline hidden md:inline truncate">
+              Case: {currentApp?.applicationNumber || "None Selected"}
+            </span>
+          </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => handleDecision("FAIL")}
-                  className="flex-1 sm:flex-none px-4 py-2 bg-error text-white rounded-lg text-xs font-bold hover:bg-error/90 transition-all shadow-xs flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">cancel</span>
-                  REJECT (Issue Form-B Notice)
-                </button>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => handleDecision("FAIL")}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-error text-white rounded-xl text-xs font-bold hover:bg-error/90 transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-98"
+            >
+              <span className="material-symbols-outlined text-[16px]">cancel</span>
+              REJECT (Issue Form-B Notice)
+            </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleDecision("PASS")}
-                  className="flex-1 sm:flex-none px-5 py-2 bg-secondary text-white rounded-lg text-xs font-bold hover:bg-secondary/90 transition-all shadow-xs flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">verified</span>
-                  PASS (Issue Form-A Certificate)
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleDecision("PASS")}
+              className="flex-1 sm:flex-none px-5 py-2.5 bg-secondary text-white rounded-xl text-xs font-bold hover:bg-secondary/90 transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-98"
+            >
+              <span className="material-symbols-outlined text-[16px]">verified</span>
+              PASS (Issue Form-A Certificate)
+            </button>
           </div>
         </div>
       </main>
