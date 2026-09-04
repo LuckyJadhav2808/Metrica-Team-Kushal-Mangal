@@ -182,7 +182,7 @@ interface MetricaContextType {
 
 const MetricaContext = createContext<MetricaContextType | undefined>(undefined);
 
-const STORAGE_KEY = "metrica_data_v2";
+const STORAGE_KEY = "metrica_data_v3";
 
 export function MetricaProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User>(GOVERNMENT_PERSONAS.ADMIN);
