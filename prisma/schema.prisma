@@ -1,0 +1,157 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  role               String   // ADMIN, LMO, OWNER, MANUFACTURER, PUBLIC
+  name               String
+  designation        String
+  phone              String   @default("")
+  organizationName   String?
+  jurisdictionCircle String   @default("National")
+  officerBadgeId     String?
+  avatarLetter       String   @default("U")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  instruments        Instrument[]
+  applications       VerificationApplication[]
+  verifications      Verification[]
+}
+
+model Instrument {
+  id                   String   @id @default(uuid())
+  digitalInstrumentId  String   @unique // e.g. IND-MET-2026-X8829
+  serialNumber         String   @unique
+  modelName            String
+  category             String   // ELECTRONIC_COUNTER_SCALE, PLATFORM_SCALE, WEIGHBRIDGE, etc.
+  accuracyClass        String   @default("CLASS_III")
+  nominalUnit          String   @default("KG")
+  maxCapacity          Float    @default(30.0)
+  minCapacity          Float    @default(0.1)
+  verificationInterval Float    @default(0.005)
+  manufacturerName     String   @default("Apex Metrology Ltd")
+  ownerName            String?
+  ownerAddress         String?
+  pincode              String   @default("110001")
+  jurisdictionCircle   String   @default("Delhi North District Circle")
+  status               String   @default("REGISTERED_PENDING_VERIFICATION")
+  riskScore            Int      @default(10)
+  trustScore           Int      @default(90)
+  priorityFlag         String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  lastVerifiedAt       String?
+  validUntil           String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Foreign keys
+  ownerId              String?
+  owner                User?    @relation(fields: [ownerId], references: [id])
+
+  // Relations
+  applications         VerificationApplication[]
+  verifications        Verification[]
+  certificates         Certificate[]
+  complaints           Complaint[]
+}
+
+model VerificationApplication {
+  id                   String   @id @default(uuid())
+  applicationNumber    String   @unique // e.g. APP-2026-90412
+  instrumentId         String
+  instrument           Instrument @relation(fields: [instrumentId], references: [id])
+  instrumentSerial     String
+  applicantName        String
+  applicantPhone       String
+  type                 String   @default("INITIAL_VERIFICATION")
+  readinessScore       Int      @default(75)
+  feeAmount            Float    @default(150.0)
+  paymentRefNumber     String?
+  paymentStatus        String   @default("PAID")
+  assignedOfficerId    String?
+  assignedOfficerName  String?
+  scheduledDate        String?
+  scheduledSlot        String?
+  status               String   @default("PENDING_ASSIGNMENT")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  assignedOfficer      User?    @relation(fields: [assignedOfficerId], references: [id])
+  verifications        Verification[]
+}
+
+model Verification {
+  id                   String   @id @default(uuid())
+  applicationId        String
+  application          VerificationApplication @relation(fields: [applicationId], references: [id])
+  instrumentId         String
+  instrument           Instrument @relation(fields: [instrumentId], references: [id])
+  officerId            String
+  officer              User     @relation(fields: [officerId], references: [id])
+  officerName          String
+  inspectionDate       DateTime @default(now())
+  result               String   // PASS or FAIL
+  appliedSealNumber    String?
+  ocrSerialMatched     Boolean  @default(false)
+  mpeTolerancePassed   Boolean  @default(false)
+  observationsJson     String   // Serialized JSON of observation details
+  summaryNotes         String?
+  createdAt            DateTime @default(now())
+
+  // Relations
+  certificates         Certificate[]
+}
+
+model Certificate {
+  id                   String   @id @default(uuid())
+  certificateNumber    String   @unique // e.g. CERT-DoCA-2026-9912
+  instrumentId         String
+  instrument           Instrument @relation(fields: [instrumentId], references: [id])
+  digitalInstrumentId  String
+  verificationId       String?
+  verification         Verification? @relation(fields: [verificationId], references: [id])
+  issueDate            String
+  validUntil           String
+  status               String   @default("ACTIVE_VALID")
+  physicalSealNumber   String
+  digitalSignatureHash String   // HMAC-SHA256 hash
+  signedByOfficerName  String
+  qrPayloadUrl         String
+  createdAt            DateTime @default(now())
+}
+
+model Complaint {
+  id                   String   @id @default(uuid())
+  complaintNumber      String   @unique // e.g. CMP-2026-0041
+  instrumentId         String?
+  instrument           Instrument? @relation(fields: [instrumentId], references: [id])
+  digitalInstrumentId  String?
+  category             String   // SHORT_WEIGHT, BROKEN_SEAL, EXPIRED_STAMP
+  description          String
+  complainantPhone     String?
+  severity             String   @default("MEDIUM")
+  status               String   @default("LOGGED")
+  impactOnRiskScore    Int      @default(25)
+  createdAt            DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  timestamp  DateTime @default(now())
+  entityType String
+  entityId   String
+  actorName  String
+  actorRole  String
+  action     String
+  details    String
+}

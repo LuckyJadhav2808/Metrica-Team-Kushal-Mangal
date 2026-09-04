@@ -11,11 +11,34 @@ export default function PublicQRVerificationPage() {
   const rawId = (params?.id as string) || "55201";
   const { instruments, certificates, fileComplaint } = useMetrica();
 
-  // Find instrument by digitalInstrumentId or id
-  const inst = instruments.find(
+  // Find instrument by digitalInstrumentId or id from store
+  const storeInst = instruments.find(
     (i) => i.digitalInstrumentId.toLowerCase() === rawId.toLowerCase() || i.id === rawId || i.serialNumber.toLowerCase() === rawId.toLowerCase()
   );
-  const cert = inst ? certificates.find((c) => c.instrumentId === inst.id) : null;
+  const storeCert = storeInst ? certificates.find((c) => c.instrumentId === storeInst.id || c.digitalInstrumentId === storeInst.digitalInstrumentId) : null;
+
+  // Fallback direct database query for external / direct QR links
+  const [dbInst, setDbInst] = useState<any>(null);
+  const [dbCert, setDbCert] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (!storeInst && rawId && rawId !== "demo") {
+      fetch(`/api/instruments?search=${encodeURIComponent(rawId)}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((items) => {
+          if (Array.isArray(items) && items.length > 0) {
+            setDbInst(items[0]);
+            if (Array.isArray(items[0].certificates) && items[0].certificates.length > 0) {
+              setDbCert(items[0].certificates[0]);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [storeInst, rawId]);
+
+  const inst = storeInst || dbInst;
+  const cert = storeCert || dbCert;
 
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportCategory, setReportCategory] = useState<any>("SHORT_WEIGHT");

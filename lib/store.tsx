@@ -88,8 +88,10 @@ interface MetricaContextType {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
   loginAs: (role: UserRole) => void;
+  loginWithUser: (user: User) => void;
   registerUser: (userData: Omit<User, "id">) => User;
   logout: () => void;
+  refreshDatabase: () => Promise<void>;
   instruments: Instrument[];
   applications: VerificationApplication[];
   verifications: Verification[];
@@ -127,7 +129,167 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  // Load from localStorage on client mount
+  // Function to sync with SQLite database via REST API
+  const refreshDatabase = async () => {
+    try {
+      // 1. Session user
+      const authRes = await fetch("/api/auth/me");
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        if (authData.authenticated && authData.user) {
+          setCurrentUser(authData.user);
+        }
+      }
+
+      // 2. Instruments
+      const instRes = await fetch("/api/instruments");
+      if (instRes.ok) {
+        const dbInstruments = await instRes.json();
+        if (Array.isArray(dbInstruments) && dbInstruments.length > 0) {
+          const mappedInstruments: Instrument[] = dbInstruments.map((dbInst: any) => ({
+            id: dbInst.id,
+            digitalInstrumentId: dbInst.digitalInstrumentId,
+            serialNumber: dbInst.serialNumber,
+            modelName: dbInst.modelName,
+            category: dbInst.category,
+            accuracyClass: dbInst.accuracyClass,
+            nominalUnit: dbInst.nominalUnit,
+            maxCapacity: dbInst.maxCapacity,
+            minCapacity: dbInst.minCapacity,
+            verificationInterval: dbInst.verificationInterval,
+            manufacturerName: dbInst.manufacturerName,
+            ownerName: dbInst.ownerName,
+            ownerAddress: dbInst.ownerAddress,
+            jurisdictionCircle: dbInst.jurisdictionCircle,
+            pincode: dbInst.pincode || "110001",
+            status: dbInst.status,
+            riskScore: dbInst.riskScore,
+            trustScore: dbInst.trustScore,
+            priorityFlag: dbInst.priorityFlag,
+            lastVerifiedAt: dbInst.lastVerifiedAt,
+            validUntil: dbInst.validUntil,
+            currentSealNumber: dbInst.currentSealNumber,
+            createdAt: typeof dbInst.createdAt === "string" ? dbInst.createdAt : new Date(dbInst.createdAt).toISOString(),
+          }));
+          setInstruments(mappedInstruments);
+
+          // Extract any nested certificates
+          const dbCerts: Certificate[] = [];
+          dbInstruments.forEach((dbInst: any) => {
+            if (Array.isArray(dbInst.certificates)) {
+              dbInst.certificates.forEach((c: any) => {
+                dbCerts.push({
+                  id: c.id,
+                  certificateNumber: c.certificateNumber,
+                  instrumentId: c.instrumentId,
+                  digitalInstrumentId: c.digitalInstrumentId,
+                  issueDate: c.issueDate,
+                  validUntil: c.validUntil,
+                  status: c.status,
+                  physicalSealNumber: c.physicalSealNumber,
+                  digitalSignatureHash: c.digitalSignatureHash,
+                  signedByOfficerName: c.signedByOfficerName,
+                  qrPayloadUrl: c.qrPayloadUrl,
+                });
+              });
+            }
+          });
+          if (dbCerts.length > 0) {
+            setCertificates((prev) => {
+              const existingIds = new Set(prev.map((c) => c.certificateNumber));
+              const newItems = dbCerts.filter((c) => !existingIds.has(c.certificateNumber));
+              return [...newItems, ...prev];
+            });
+          }
+        }
+      }
+
+      // 3. Applications
+      const appRes = await fetch("/api/applications");
+      if (appRes.ok) {
+        const dbApps = await appRes.json();
+        if (Array.isArray(dbApps) && dbApps.length > 0) {
+          const mappedApps: VerificationApplication[] = dbApps.map((dbApp: any) => ({
+            id: dbApp.id,
+            applicationNumber: dbApp.applicationNumber,
+            instrumentId: dbApp.instrumentId,
+            instrumentSerial: dbApp.instrumentSerial,
+            instrumentCategory: dbApp.instrument?.category || "ELECTRONIC_COUNTER_SCALE",
+            applicantName: dbApp.applicantName,
+            applicantPhone: dbApp.applicantPhone,
+            jurisdictionCircle: dbApp.instrument?.jurisdictionCircle || "Delhi North District Circle",
+            type: dbApp.type,
+            status: dbApp.status,
+            readinessScore: dbApp.readinessScore,
+            statutoryFee: dbApp.feeAmount || 150,
+            penaltyFee: 0,
+            paymentStatus: dbApp.paymentStatus,
+            paymentRefNumber: dbApp.paymentRefNumber,
+            assignedOfficerId: dbApp.assignedOfficerId,
+            assignedOfficerName: dbApp.assignedOfficerName,
+            scheduledDate: dbApp.scheduledDate,
+            scheduledSlot: dbApp.scheduledSlot,
+            createdAt: typeof dbApp.createdAt === "string" ? dbApp.createdAt : new Date(dbApp.createdAt).toISOString(),
+          }));
+          setApplications(mappedApps);
+        }
+      }
+
+      // 4. Certificates
+      const certRes = await fetch("/api/certificates");
+      if (certRes.ok) {
+        const fetchedCerts = await certRes.json();
+        if (Array.isArray(fetchedCerts) && fetchedCerts.length > 0) {
+          setCertificates(fetchedCerts);
+        }
+      }
+
+      // 5. Complaints
+      const cmpRes = await fetch("/api/complaints");
+      if (cmpRes.ok) {
+        const fetchedComplaints = await cmpRes.json();
+        if (Array.isArray(fetchedComplaints) && fetchedComplaints.length > 0) {
+          setComplaints(
+            fetchedComplaints.map((c: any) => ({
+              id: c.id,
+              digitalInstrumentId: c.digitalInstrumentId,
+              instrumentId: c.instrumentId,
+              complaintType: c.category,
+              description: c.description,
+              complainantPhone: c.complainantPhone,
+              status: c.status,
+              impactOnRiskScore: c.impactOnRiskScore,
+              createdAt: typeof c.createdAt === "string" ? c.createdAt : new Date(c.createdAt).toISOString(),
+            }))
+          );
+        }
+      }
+
+      // 6. Audit Logs
+      const logRes = await fetch("/api/audit-logs");
+      if (logRes.ok) {
+        const fetchedLogs = await logRes.json();
+        if (Array.isArray(fetchedLogs) && fetchedLogs.length > 0) {
+          setAuditLogs(
+            fetchedLogs.map((l: any) => ({
+              id: l.id,
+              entityType: l.entityType,
+              entityId: l.entityId,
+              actorName: l.actorName,
+              actorRole: l.actorRole,
+              action: l.action,
+              details: l.details,
+              timestamp: typeof l.timestamp === "string" ? l.timestamp : new Date(l.timestamp).toISOString(),
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Backend sync notice (offline mode active):", err);
+    }
+  };
+
+  // Load from localStorage on client mount, then sync with backend DB
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -148,6 +310,9 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       console.warn("Could not load from localStorage", e);
     }
     setIsLoaded(true);
+
+    // Initial database synchronization
+    refreshDatabase();
   }, []);
 
   // Save to localStorage
@@ -178,6 +343,11 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     logAudit("User", user.id, user.name, role, "LOGIN", `Signed in as ${user.designation}`);
   };
 
+  const loginWithUser = (user: User) => {
+    setCurrentUser(user);
+    logAudit("User", user.id, user.name, user.role, "LOGIN", `Signed in as ${user.designation} (${user.name})`);
+  };
+
   const registerUser = (userData: Omit<User, "id">) => {
     const newUser: User = {
       ...userData,
@@ -188,7 +358,12 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     return newUser;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.warn("Logout API notice:", e);
+    }
     setCurrentUser(GOVERNMENT_PERSONAS.PUBLIC);
   };
 
@@ -258,6 +433,45 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       severity: "LOW",
     });
 
+    // Asynchronous Database Save
+    fetch("/api/instruments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serialNumber: data.serialNumber,
+        modelName: data.modelName,
+        category: data.category,
+        accuracyClass: data.accuracyClass,
+        nominalUnit: data.nominalUnit,
+        maxCapacity: data.maxCapacity,
+        minCapacity: data.minCapacity,
+        verificationInterval: data.verificationInterval,
+        manufacturerName: data.manufacturerName,
+        ownerId: currentUser.id,
+        ownerName: data.ownerName,
+        ownerAddress: data.ownerAddress,
+        pincode: data.pincode,
+        jurisdictionCircle: data.jurisdictionCircle,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((dbInst) => {
+        if (dbInst) {
+          setInstruments((prev) =>
+            prev.map((i) =>
+              i.id === generatedId
+                ? {
+                    ...i,
+                    id: dbInst.id,
+                    digitalInstrumentId: dbInst.digitalInstrumentId,
+                  }
+                : i
+            )
+          );
+        }
+      })
+      .catch((err) => console.warn("Instrument API sync notice:", err));
+
     return newInst;
   };
 
@@ -298,7 +512,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     applicantPhone: string;
     readinessScore: number;
   }): VerificationApplication => {
-    const inst = instruments.find((i) => i.id === data.instrumentId);
+    const inst = instruments.find((i) => i.id === data.instrumentId || i.digitalInstrumentId === data.instrumentId);
     const appNum = `APP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
 
     const newApp: VerificationApplication = {
@@ -324,7 +538,9 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     // Update instrument status
     setInstruments((prev) =>
       prev.map((i) =>
-        i.id === data.instrumentId ? { ...i, status: "REGISTERED_PENDING_VERIFICATION" } : i
+        i.id === data.instrumentId || i.digitalInstrumentId === data.instrumentId
+          ? { ...i, status: "REGISTERED_PENDING_VERIFICATION" }
+          : i
       )
     );
 
@@ -337,6 +553,36 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       message: `Application ${appNum} submitted for ${inst?.digitalInstrumentId}. Ready for LMO dispatch.`,
       severity: "MEDIUM",
     });
+
+    // Asynchronous Database Save
+    fetch("/api/applications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instrumentId: data.instrumentId,
+        applicantName: data.applicantName,
+        applicantPhone: data.applicantPhone,
+        type: data.type,
+        readinessScore: data.readinessScore,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((dbApp) => {
+        if (dbApp) {
+          setApplications((prev) =>
+            prev.map((a) =>
+              a.id === newApp.id
+                ? {
+                    ...a,
+                    id: dbApp.id,
+                    applicationNumber: dbApp.applicationNumber,
+                  }
+                : a
+            )
+          );
+        }
+      })
+      .catch((err) => console.warn("Application API sync notice:", err));
 
     return newApp;
   };
@@ -355,6 +601,15 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
           : app
       )
     );
+
+    fetch("/api/applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId,
+        paymentStatus: "PAID",
+      }),
+    }).catch((err) => console.warn("Payment API sync notice:", err));
   };
 
   // Assign Officer
@@ -389,6 +644,18 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       message: `You have been assigned case ${applicationId} on ${date} (${slot}).`,
       severity: "HIGH",
     });
+
+    fetch("/api/applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId,
+        officerId,
+        officerName,
+        scheduledDate: date,
+        scheduledSlot: slot,
+      }),
+    }).catch((err) => console.warn("Assign Officer API notice:", err));
   };
 
   // Submit Verification (LMO Field Tool)
@@ -407,7 +674,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     let newCert: Certificate | undefined;
 
     if (verificationData.result === "PASS") {
-      const inst = instruments.find((i) => i.id === verificationData.instrumentId);
+      const inst = instruments.find((i) => i.id === verificationData.instrumentId || i.digitalInstrumentId === verificationData.instrumentId);
       const certId = "cert-" + Date.now();
       const certNumber = `CERT-DL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -434,7 +701,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       // Update instrument status to Verified
       setInstruments((prev) =>
         prev.map((i) =>
-          i.id === verificationData.instrumentId
+          i.id === verificationData.instrumentId || i.digitalInstrumentId === verificationData.instrumentId
             ? {
                 ...i,
                 status: "VERIFIED_ACTIVE",
@@ -452,7 +719,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       // Update application status
       setApplications((prev) =>
         prev.map((app) =>
-          app.id === verificationData.applicationId
+          app.id === verificationData.applicationId || app.applicationNumber === verificationData.applicationId
             ? { ...app, status: "PASSED_CERTIFIED" }
             : app
         )
@@ -471,7 +738,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       // Failed Verification
       setInstruments((prev) =>
         prev.map((i) =>
-          i.id === verificationData.instrumentId
+          i.id === verificationData.instrumentId || i.digitalInstrumentId === verificationData.instrumentId
             ? {
                 ...i,
                 status: "REJECTION_NOTICE_ISSUED",
@@ -484,7 +751,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
 
       setApplications((prev) =>
         prev.map((app) =>
-          app.id === verificationData.applicationId
+          app.id === verificationData.applicationId || app.applicationNumber === verificationData.applicationId
             ? { ...app, status: "REJECTION_NOTICE_ISSUED" }
             : app
         )
@@ -500,6 +767,31 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         severity: "HIGH",
       });
     }
+
+    // Fire Asynchronous Database Verification Record
+    fetch("/api/verifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId: verificationData.applicationId,
+        instrumentId: verificationData.instrumentId,
+        officerId: verificationData.officerId,
+        officerName: verificationData.officerName,
+        result: verificationData.result,
+        appliedSealNumber: verificationData.appliedSealNumber,
+        ocrSerialMatched: verificationData.ocrSerialMatched,
+        mpeTolerancePassed: verificationData.mpeTolerancePassed,
+        observations: verificationData.observations,
+        summaryNotes: verificationData.summaryNotes,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((resData) => {
+        if (resData && resData.certificate) {
+          setCertificates((prev) => [resData.certificate, ...prev.filter((c) => c.id !== newCert?.id)]);
+        }
+      })
+      .catch((err) => console.warn("Verification API sync notice:", err));
 
     return { verification: newVerification, certificate: newCert };
   };
@@ -550,6 +842,17 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       severity: "CRITICAL",
     });
 
+    fetch("/api/complaints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        digitalInstrumentId: complaintData.digitalInstrumentId,
+        instrumentId: complaintData.instrumentId,
+        complaintType: complaintData.complaintType,
+        description: complaintData.description,
+      }),
+    }).catch((err) => console.warn("Complaint API sync notice:", err));
+
     return newComplaint;
   };
 
@@ -571,8 +874,10 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         currentRole: currentUser.role,
         setCurrentRole,
         loginAs,
+        loginWithUser,
         registerUser,
         logout,
+        refreshDatabase,
         instruments,
         applications,
         verifications,

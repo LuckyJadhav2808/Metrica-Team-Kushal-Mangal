@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMetrica, GOVERNMENT_PERSONAS } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
+import { UserRole } from "@/lib/types";
 
 export type LoginRole = "ADMIN" | "LMO" | "OWNER" | "CITIZEN";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginAs, registerUser } = useMetrica();
+  const { loginAs, loginWithUser, registerUser, refreshDatabase } = useMetrica();
   const toast = useToast();
 
   // Active Role Tab: ADMIN | LMO | OWNER | CITIZEN
@@ -45,44 +46,85 @@ export default function LoginPage() {
     }
   };
 
-  const handleOfficerSignIn = (e: React.FormEvent) => {
+  const handleOfficerSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
 
-    setTimeout(() => {
-      if (selectedRole === "ADMIN") {
-        loginAs("ADMIN");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role: selectedRole !== "CITIZEN" ? selectedRole : undefined }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error("Authentication Failed", data.error || "Invalid credentials");
         setIsAuthenticating(false);
-        toast.success(
-          "Controller Clearance Verified",
-          "Welcome Dr. S. K. Verma. Directorate Command Center active."
-        );
-        router.push("/admin");
-      } else if (selectedRole === "LMO") {
-        loginAs("LMO");
-        setIsAuthenticating(false);
-        toast.success(
-          "Field Officer Clearance Verified",
-          "Welcome Rajesh Kumar (LMO-DL-N-884). Field inspection docket active."
-        );
-        router.push("/lmo");
-      } else if (selectedRole === "OWNER") {
-        loginAs("OWNER");
-        setIsAuthenticating(false);
-        toast.success(
-          "Merchant Workspace Authenticated",
-          "Welcome Ramesh Patel (Green Valley Groceries). Scale inventory vault active."
-        );
-        router.push("/owner");
+        return;
       }
-    }, 500);
+
+      // Sync frontend store
+      loginWithUser(data.user);
+      await refreshDatabase();
+      setIsAuthenticating(false);
+
+      toast.success(
+        "Clearance Verified",
+        `Welcome ${data.user.name} (${data.user.designation}). Session established.`
+      );
+
+      if (data.user.role === "ADMIN") router.push("/admin");
+      else if (data.user.role === "LMO") router.push("/lmo");
+      else router.push("/owner");
+    } catch {
+      // Fallback in case of offline dev mode
+      loginAs(selectedRole !== "CITIZEN" ? selectedRole : "OWNER");
+      setIsAuthenticating(false);
+      if (selectedRole === "ADMIN") router.push("/admin");
+      else if (selectedRole === "LMO") router.push("/lmo");
+      else router.push("/owner");
+    }
   };
 
-  const handleOwnerRegister = (e: React.FormEvent) => {
+  const handleOwnerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: contactPerson || "Commercial Merchant",
+          email: regEmail,
+          password: "password123",
+          role: "OWNER",
+          organizationName: businessName || "Retail Trading Corp",
+          jurisdictionCircle: circle,
+          phone: regPhone,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error("Registration Failed", data.error || "Could not register account");
+        setIsAuthenticating(false);
+        return;
+      }
+
+      loginWithUser(data.user);
+      await refreshDatabase();
+      setIsAuthenticating(false);
+
+      toast.success(
+        "Commercial Licensee Registered",
+        `Account created for ${data.user.organizationName}. Scale inventory workspace activated.`
+      );
+      router.push("/owner");
+    } catch {
       const newUser = registerUser({
         role: "OWNER",
         name: contactPerson || "Commercial Merchant",
@@ -93,20 +135,52 @@ export default function LoginPage() {
         jurisdictionCircle: circle,
         avatarLetter: (contactPerson || "M").charAt(0).toUpperCase(),
       });
-
       setIsAuthenticating(false);
-      toast.success(
-        "Commercial Licensee Registered",
-        `Account created for ${newUser.organizationName}. Scale inventory workspace activated.`
-      );
+      toast.success("Merchant Registered", `Workspace created for ${newUser.organizationName}`);
       router.push("/owner");
-    }, 500);
+    }
   };
 
   const handleCitizenAccess = () => {
     loginAs("PUBLIC");
     toast.info("Public Citizen Access", "Redirecting to public QR measurement verification tool.");
     router.push("/qr/demo");
+  };
+
+  const handleQuickEvaluatorPass = async (role: UserRole) => {
+    let emailToUse = "controller.lm@nic.in";
+    if (role === "LMO") emailToUse = "rajesh.kumar.lmo@gov.in";
+    else if (role === "OWNER") emailToUse = "ramesh.patel@greenvalley.in";
+    else if (role === "MANUFACTURER") emailToUse = "regulatory@apexmetrology.com";
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailToUse, password: "password123", role }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          loginWithUser(data.user);
+          await refreshDatabase();
+        } else {
+          loginAs(role);
+        }
+      } else {
+        loginAs(role);
+      }
+    } catch {
+      loginAs(role);
+    }
+
+    const p = GOVERNMENT_PERSONAS[role];
+    toast.info("Evaluator Fast Pass", `Switched to ${p.name} (${p.designation})`);
+
+    if (role === "ADMIN") router.push("/admin");
+    else if (role === "LMO") router.push("/lmo");
+    else if (role === "OWNER") router.push("/owner");
+    else if (role === "MANUFACTURER") router.push("/manufacturer");
   };
 
   return (
@@ -617,11 +691,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => {
-                  handleRoleSelect("ADMIN");
-                  loginAs("ADMIN");
-                  router.push("/admin");
-                }}
+                onClick={() => handleQuickEvaluatorPass("ADMIN")}
                 className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
               >
                 <div className="font-bold text-primary text-[11px] group-hover:underline">Controller</div>
@@ -630,11 +700,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  handleRoleSelect("LMO");
-                  loginAs("LMO");
-                  router.push("/lmo");
-                }}
+                onClick={() => handleQuickEvaluatorPass("LMO")}
                 className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
               >
                 <div className="font-bold text-primary text-[11px] group-hover:underline">Inspector</div>
@@ -643,11 +709,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  handleRoleSelect("OWNER");
-                  loginAs("OWNER");
-                  router.push("/owner");
-                }}
+                onClick={() => handleQuickEvaluatorPass("OWNER")}
                 className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all text-left group"
               >
                 <div className="font-bold text-primary text-[11px] group-hover:underline">Merchant</div>
