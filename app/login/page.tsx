@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMetrica, GOVERNMENT_PERSONAS } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
 import { UserRole } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 export type LoginRole = "ADMIN" | "LMO" | "OWNER" | "CITIZEN";
 
@@ -50,6 +51,16 @@ export default function LoginPage() {
     e.preventDefault();
     setIsAuthenticating(true);
 
+    // 1. Establish Supabase Auth session in browser
+    try {
+      await supabase.auth.signInWithPassword({
+        email,
+        password: password === "••••••••••••" ? "password123" : password,
+      });
+    } catch (e) {
+      console.warn("Supabase auth notice:", e);
+    }
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -91,6 +102,26 @@ export default function LoginPage() {
   const handleOwnerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAuthenticating(true);
+
+    // Register with Supabase Auth
+    try {
+      await supabase.auth.signUp({
+        email: regEmail,
+        password: "password123",
+        options: {
+          data: {
+            role: "OWNER",
+            name: contactPerson || "Commercial Merchant",
+            designation: "Commercial Licensee",
+            organizationName: businessName || "Retail Trading Corp",
+            jurisdictionCircle: circle,
+            phone: regPhone,
+          },
+        },
+      });
+    } catch (e) {
+      console.warn("Supabase signup notice:", e);
+    }
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -152,6 +183,15 @@ export default function LoginPage() {
     if (role === "LMO") emailToUse = "rajesh.kumar.lmo@gov.in";
     else if (role === "OWNER") emailToUse = "ramesh.patel@greenvalley.in";
     else if (role === "MANUFACTURER") emailToUse = "regulatory@apexmetrology.com";
+
+    try {
+      await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password: "password123",
+      });
+    } catch (e) {
+      console.warn("Supabase fast-pass notice:", e);
+    }
 
     try {
       const res = await fetch("/api/auth/login", {

@@ -12,6 +12,74 @@ import {
   Notification,
   AuditLog,
 } from "./types";
+import { supabase } from "./supabase";
+
+function mapSupabaseInstrument(data: any): Instrument {
+  return {
+    id: data.id,
+    digitalInstrumentId: data.digital_instrument_id || data.digitalInstrumentId,
+    serialNumber: data.serial_number || data.serialNumber,
+    modelName: data.model_name || data.modelName,
+    category: data.category || "ELECTRONIC_COUNTER_SCALE",
+    accuracyClass: data.accuracy_class || data.accuracyClass || "CLASS_III",
+    nominalUnit: data.nominal_unit || data.nominalUnit || "KG",
+    maxCapacity: Number(data.max_capacity ?? data.maxCapacity ?? 30),
+    minCapacity: Number(data.min_capacity ?? data.minCapacity ?? 0.1),
+    verificationInterval: Number(data.verification_interval ?? data.verificationInterval ?? 0.005),
+    manufacturerName: data.manufacturer_name || data.manufacturerName || "Apex Metrology Ltd",
+    ownerName: data.owner_name || data.ownerName,
+    ownerAddress: data.owner_address || data.ownerAddress,
+    pincode: data.pincode || "110001",
+    jurisdictionCircle: data.jurisdiction_circle || data.jurisdictionCircle || "Delhi North District Circle",
+    status: data.status || "REGISTERED_PENDING_VERIFICATION",
+    riskScore: Number(data.risk_score ?? data.riskScore ?? 10),
+    trustScore: Number(data.trust_score ?? data.trustScore ?? 90),
+    priorityFlag: data.priority_flag || data.priorityFlag || "LOW",
+    lastVerifiedAt: data.last_verified_at || data.lastVerifiedAt,
+    validUntil: data.valid_until || data.validUntil,
+    currentSealNumber: data.current_seal_number || data.currentSealNumber,
+    createdAt: data.created_at || data.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapSupabaseApplication(data: any): VerificationApplication {
+  return {
+    id: data.id,
+    applicationNumber: data.application_number || data.applicationNumber,
+    instrumentId: data.instrument_id || data.instrumentId,
+    instrumentSerial: data.instrument_serial || data.instrumentSerial || "UNKNOWN",
+    instrumentCategory: data.category || "ELECTRONIC_COUNTER_SCALE",
+    applicantName: data.applicant_name || data.applicantName,
+    applicantPhone: data.applicant_phone || data.applicantPhone || "+91 98000 00000",
+    jurisdictionCircle: data.jurisdiction_circle || "Delhi North District Circle",
+    type: data.type || "INITIAL_VERIFICATION",
+    status: data.status || "PENDING_ASSIGNMENT",
+    readinessScore: Number(data.readiness_score ?? data.readinessScore ?? 85),
+    statutoryFee: Number(data.fee_amount ?? data.statutoryFee ?? 150),
+    penaltyFee: 0,
+    paymentStatus: data.payment_status || data.paymentStatus || "PAID",
+    paymentRefNumber: data.payment_ref_number || data.paymentRefNumber,
+    assignedOfficerId: data.assigned_officer_id || data.assignedOfficerId,
+    assignedOfficerName: data.assigned_officer_name || data.assignedOfficerName,
+    scheduledDate: data.scheduled_date || data.scheduledDate,
+    scheduledSlot: data.scheduled_slot || data.scheduledSlot,
+    createdAt: data.created_at || data.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapSupabaseComplaint(data: any): Complaint {
+  return {
+    id: data.id,
+    digitalInstrumentId: data.digital_instrument_id || data.digitalInstrumentId,
+    instrumentId: data.instrument_id || data.instrumentId,
+    complaintType: data.category || data.complaintType || "SHORT_WEIGHT",
+    description: data.description || "",
+    complainantPhone: data.complainant_phone || data.complainantPhone,
+    status: data.status || "LOGGED",
+    impactOnRiskScore: Number(data.impact_on_risk_score ?? 25),
+    createdAt: data.created_at || data.createdAt || new Date().toISOString(),
+  };
+}
 
 export const GOVERNMENT_PERSONAS: Record<UserRole, User> = {
   ADMIN: {
@@ -315,6 +383,79 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     refreshDatabase();
   }, []);
 
+  // Supabase Realtime Channel Subscription & Auth State Listener
+  useEffect(() => {
+    // 1. Supabase Auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {};
+        if (meta.role) {
+          const userObj: User = {
+            id: session.user.id,
+            email: session.user.email || "",
+            role: meta.role as UserRole,
+            name: meta.name || "Authorized User",
+            designation: meta.designation || "Regulatory User",
+            phone: meta.phone || "",
+            organizationName: meta.organizationName,
+            jurisdictionCircle: meta.jurisdictionCircle || "Delhi North District Circle",
+            officerBadgeId: meta.officerBadgeId,
+            avatarLetter: meta.avatarLetter || (meta.name ? meta.name[0].toUpperCase() : "U"),
+          };
+          setCurrentUser(userObj);
+        }
+      }
+    });
+
+    // 2. Realtime WebSocket Channel for Live Postgres Updates
+    const channel = supabase
+      .channel("metrica-realtime-database")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "instruments" },
+        (payload: any) => {
+          if (payload.eventType === "INSERT") {
+            const newItem = mapSupabaseInstrument(payload.new);
+            setInstruments((prev) => [newItem, ...prev.filter((i) => i.digitalInstrumentId !== newItem.digitalInstrumentId)]);
+          } else if (payload.eventType === "UPDATE") {
+            const updatedItem = mapSupabaseInstrument(payload.new);
+            setInstruments((prev) =>
+              prev.map((i) => (i.digitalInstrumentId === updatedItem.digitalInstrumentId || i.id === updatedItem.id ? updatedItem : i))
+            );
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "verification_applications" },
+        (payload: any) => {
+          if (payload.eventType === "INSERT") {
+            const newApp = mapSupabaseApplication(payload.new);
+            setApplications((prev) => [newApp, ...prev.filter((a) => a.applicationNumber !== newApp.applicationNumber)]);
+          } else if (payload.eventType === "UPDATE") {
+            const updatedApp = mapSupabaseApplication(payload.new);
+            setApplications((prev) =>
+              prev.map((a) => (a.applicationNumber === updatedApp.applicationNumber || a.id === updatedApp.id ? updatedApp : a))
+            );
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "complaints" },
+        (payload: any) => {
+          const newComplaint = mapSupabaseComplaint(payload.new);
+          setComplaints((prev) => [newComplaint, ...prev.filter((c) => c.id !== newComplaint.id)]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Save to localStorage
   useEffect(() => {
     if (!isLoaded) return;
@@ -472,6 +613,34 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((err) => console.warn("Instrument API sync notice:", err));
 
+    // Push to Supabase Realtime Database (Postgres broadcast)
+    try {
+      supabase
+        .from("instruments")
+        .insert({
+          digital_instrument_id: digitalId,
+          serial_number: data.serialNumber,
+          model_name: data.modelName,
+          category: data.category,
+          accuracy_class: data.accuracyClass,
+          nominal_unit: data.nominalUnit,
+          max_capacity: data.maxCapacity,
+          min_capacity: data.minCapacity,
+          verification_interval: data.verificationInterval,
+          manufacturer_name: data.manufacturerName,
+          owner_name: data.ownerName,
+          owner_address: data.ownerAddress,
+          pincode: data.pincode,
+          jurisdiction_circle: data.jurisdictionCircle,
+          status: data.status,
+        })
+        .then((res) => {
+          if (res.error) console.warn("Supabase Realtime instrument notice:", res.error.message);
+        });
+    } catch (e) {
+      console.warn("Supabase Realtime notice:", e);
+    }
+
     return newInst;
   };
 
@@ -583,6 +752,28 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch((err) => console.warn("Application API sync notice:", err));
+
+    // Push to Supabase Realtime Database (Postgres broadcast)
+    try {
+      supabase
+        .from("verification_applications")
+        .insert({
+          application_number: appNum,
+          instrument_serial: inst?.serialNumber || "UNKNOWN",
+          applicant_name: data.applicantName,
+          applicant_phone: data.applicantPhone,
+          type: data.type,
+          readiness_score: data.readinessScore,
+          fee_amount: 150.0,
+          payment_status: "PAID",
+          status: "PENDING_ASSIGNMENT",
+        })
+        .then((res) => {
+          if (res.error) console.warn("Supabase Realtime application notice:", res.error.message);
+        });
+    } catch (e) {
+      console.warn("Supabase Realtime notice:", e);
+    }
 
     return newApp;
   };
@@ -852,6 +1043,24 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         description: complaintData.description,
       }),
     }).catch((err) => console.warn("Complaint API sync notice:", err));
+
+    // Push to Supabase Realtime Database (Postgres broadcast)
+    try {
+      supabase
+        .from("complaints")
+        .insert({
+          complaint_number: "CMP-2026-" + Math.floor(1000 + Math.random() * 9000),
+          digital_instrument_id: complaintData.digitalInstrumentId,
+          category: complaintData.complaintType,
+          description: complaintData.description,
+          status: "LOGGED",
+        })
+        .then((res) => {
+          if (res.error) console.warn("Supabase Realtime complaint notice:", res.error.message);
+        });
+    } catch (e) {
+      console.warn("Supabase Realtime notice:", e);
+    }
 
     return newComplaint;
   };
