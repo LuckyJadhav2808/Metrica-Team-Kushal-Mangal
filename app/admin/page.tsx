@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { InstitutionalNavigation } from "@/components/navigation";
@@ -9,6 +9,21 @@ import { useMetrica } from "@/lib/store";
 import { VerificationApplication, Complaint, Instrument } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+
+interface CircleOfficerItem {
+  id: string;
+  name: string;
+  designation: string;
+  circle: string;
+  hub: string;
+  avatar: string;
+  color: string;
+  turnaround: string;
+  kitId: string;
+  badge: string;
+  email?: string;
+  phone?: string;
+}
 
 export default function AdminCommandCenterPage() {
   return (
@@ -35,6 +50,8 @@ function AdminCommandCenterContent() {
     applications,
     instruments,
     complaints,
+    officers,
+    commissionOfficer,
     assignOfficer,
     updateComplaintStatus,
     dispatchRaidForComplaint,
@@ -73,6 +90,43 @@ function AdminCommandCenterContent() {
   const [complaintFilter, setComplaintFilter] = useState<"ALL" | "LOGGED" | "ACTION_TAKEN_RAID" | "RESOLVED">("ALL");
   const [selectedComplaintForRaid, setSelectedComplaintForRaid] = useState<Complaint | null>(null);
   const [selectedComplaintForResolve, setSelectedComplaintForResolve] = useState<Complaint | null>(null);
+
+  // Commission New Officer Modal State
+  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
+  const [newOfficerName, setNewOfficerName] = useState("");
+  const [newOfficerEmail, setNewOfficerEmail] = useState("");
+  const [newOfficerCircle, setNewOfficerCircle] = useState("Delhi West District Circle");
+  const [newOfficerHub, setNewOfficerHub] = useState("Najafgarh & Punjabi Bagh APMC Hub");
+  const [newOfficerDesignation, setNewOfficerDesignation] = useState("Legal Metrology Inspector (Grade-I)");
+  const [newOfficerBadge, setNewOfficerBadge] = useState("LMO-DL-W-604");
+  const [newOfficerPhone, setNewOfficerPhone] = useState("+91 98110 55443");
+  const [newOfficerPassword, setNewOfficerPassword] = useState("GovPass@2026");
+  const [isCommissioning, setIsCommissioning] = useState(false);
+  const [commissionSuccessMemo, setCommissionSuccessMemo] = useState<any>(null);
+
+  const handleCommissionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCommissioning(true);
+    const res = await commissionOfficer({
+      name: newOfficerName,
+      email: newOfficerEmail,
+      jurisdictionCircle: newOfficerCircle,
+      organizationName: newOfficerHub,
+      designation: newOfficerDesignation,
+      officerBadgeId: newOfficerBadge,
+      phone: newOfficerPhone,
+      password: newOfficerPassword,
+    });
+    setIsCommissioning(false);
+    if (res.ok) {
+      setCommissionSuccessMemo(res);
+      toast.success("Officer Commissioned Successfully", `${newOfficerName} added to ${newOfficerCircle}.`);
+      setNewOfficerName("");
+      setNewOfficerEmail("");
+    } else {
+      toast.error("Commissioning Failed", res.error || "Could not register officer.");
+    }
+  };
   const [resolutionText, setResolutionText] = useState("");
 
   // New Case Modal State
@@ -95,53 +149,77 @@ function AdminCommandCenterContent() {
   const openComplaintsCount = complaints.filter((c) => c.status === "LOGGED").length;
   const resolvedComplaintsCount = complaints.filter((c) => c.status === "RESOLVED" || c.status === "DISMISSED").length;
 
-  // Circle Officers definition
-  const CIRCLE_OFFICERS = [
-    {
-      id: "lmo-01",
-      name: "Rajesh Kumar",
-      designation: "LMO Grade-I",
-      circle: "Delhi North District Circle",
-      hub: "Azadpur Mandi & Jahangirpuri",
-      avatar: "R",
-      color: "bg-primary",
-      turnaround: "1.4 days",
-      kitId: "Standards Kit #DL-WS-04",
-    },
-    {
-      id: "lmo-02",
-      name: "Sunita Sharma",
-      designation: "LMO Grade-I",
-      circle: "Delhi Central District Circle",
-      hub: "Chandni Chowk & Daryaganj",
-      avatar: "S",
-      color: "bg-emerald-700",
-      turnaround: "1.8 days",
-      kitId: "Standards Kit #DL-WS-02",
-    },
-    {
-      id: "lmo-03",
-      name: "Amitabh Roy",
-      designation: "LMO Grade-II",
-      circle: "Delhi East District Circle",
-      hub: "Ghazipur Mandi & Mayur Vihar",
-      avatar: "A",
-      color: "bg-purple-700",
-      turnaround: "2.1 days",
-      kitId: "Standards Kit #DL-WS-09",
-    },
-    {
-      id: "lmo-04",
-      name: "Vikramaditya Rao",
-      designation: "LMO Grade-II",
-      circle: "Delhi South District Circle",
-      hub: "Okhla Industrial & Mehrauli",
-      avatar: "V",
-      color: "bg-amber-700",
-      turnaround: "1.6 days",
-      kitId: "Standards Kit #DL-WS-07",
-    },
-  ];
+  // Dynamic Circle Officers backed by DB / store
+  const circleOfficersList = useMemo<CircleOfficerItem[]>(() => {
+    if (officers && officers.length > 0) {
+      const colors = ["bg-primary", "bg-emerald-700", "bg-purple-700", "bg-amber-700", "bg-teal-700", "bg-indigo-700"];
+      return officers.map((o, idx) => ({
+        id: o.id,
+        name: o.name,
+        designation: o.designation || "LMO Grade-I",
+        circle: o.jurisdictionCircle || "Delhi North District Circle",
+        hub: o.organizationName || "APMC Commercial Hub",
+        avatar: o.avatarLetter || o.name.charAt(0).toUpperCase(),
+        color: colors[idx % colors.length],
+        turnaround: "1.5 days",
+        kitId: `Standards Kit #${o.officerBadgeId || `DL-WS-0${idx + 1}`}`,
+        badge: o.officerBadgeId || `LMO-DL-${idx + 1}`,
+        email: o.email,
+        phone: o.phone,
+      }));
+    }
+    // Fallback if officers are still loading from REST API
+    return [
+      {
+        id: "lmo-01",
+        name: "Rajesh Kumar",
+        designation: "LMO Grade-I",
+        circle: "Delhi North District Circle",
+        hub: "Azadpur Mandi & Jahangirpuri",
+        avatar: "R",
+        color: "bg-primary",
+        turnaround: "1.4 days",
+        kitId: "Standards Kit #DL-WS-04",
+        badge: "LMO-DL-N-884",
+      },
+      {
+        id: "lmo-02",
+        name: "Sunita Sharma",
+        designation: "LMO Grade-I",
+        circle: "Delhi Central District Circle",
+        hub: "Chandni Chowk & Daryaganj",
+        avatar: "S",
+        color: "bg-emerald-700",
+        turnaround: "1.8 days",
+        kitId: "Standards Kit #DL-WS-02",
+        badge: "LMO-DL-C-412",
+      },
+      {
+        id: "lmo-03",
+        name: "Amitabh Roy",
+        designation: "LMO Grade-I",
+        circle: "Delhi East District Circle",
+        hub: "Ghazipur Mandi & Mayur Vihar",
+        avatar: "A",
+        color: "bg-purple-700",
+        turnaround: "2.1 days",
+        kitId: "Standards Kit #DL-WS-09",
+        badge: "LMO-DL-E-591",
+      },
+      {
+        id: "lmo-04",
+        name: "Vikramaditya Rao",
+        designation: "Senior Metrology Enforcement Inspector",
+        circle: "Delhi South District Circle",
+        hub: "Okhla Mandi & Nehru Place",
+        avatar: "V",
+        color: "bg-amber-700",
+        turnaround: "1.6 days",
+        kitId: "Standards Kit #DL-WS-07",
+        badge: "LMO-DL-S-903",
+      },
+    ];
+  }, [officers]);
 
   const filteredApps = applications.filter((app) => {
     const inst = instruments.find((i) => i.id === app.instrumentId);
@@ -245,7 +323,7 @@ function AdminCommandCenterContent() {
   };
 
   return (
-    <div className="bg-surface h-full flex overflow-hidden">
+    <div className="bg-surface h-screen flex overflow-hidden">
       {/* Dynamic Sidebar highlighting based on activeTab */}
       <InstitutionalNavigation activeSection={activeTab.toLowerCase()} />
 
@@ -1012,10 +1090,18 @@ function AdminCommandCenterContent() {
                       Real-time inspector caseload distribution across APMC mandis, testing circles, and working standards kits.
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCommissionModalOpen(true)}
+                    className="px-3.5 py-2 bg-primary text-white rounded-xl font-bold text-xs hover:bg-primary-container shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-base">person_add</span>
+                    Commission Circle Officer
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  {CIRCLE_OFFICERS.map((officer) => {
+                  {circleOfficersList.map((officer) => {
                     const assignedOfficerCases = applications.filter(
                       (a) => a.assignedOfficerName?.includes(officer.name) || a.assignedOfficerId === officer.id
                     );
@@ -1137,10 +1223,11 @@ function AdminCommandCenterContent() {
                 onChange={(e) => setRaidOfficer(e.target.value)}
                 className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface font-semibold text-xs outline-none focus:border-primary"
               >
-                <option value="LMO Rajesh Kumar (North District)">LMO Rajesh Kumar (North District — Azadpur Mandi)</option>
-                <option value="LMO Sunita Sharma (Central Circle)">LMO Sunita Sharma (Central Circle — Chandni Chowk)</option>
-                <option value="LMO Amitabh Roy (East District)">LMO Amitabh Roy (East District — Ghazipur Mandi)</option>
-                <option value="LMO Vikramaditya Rao (South District)">LMO Vikramaditya Rao (South District — Okhla Mandi)</option>
+                {circleOfficersList.map((off) => (
+                  <option key={off.id} value={`LMO ${off.name} (${off.circle.split(" ")[1]} District)`}>
+                    LMO {off.name} ({off.circle.split(" ")[1]} District — {off.hub})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1218,10 +1305,11 @@ function AdminCommandCenterContent() {
                 onChange={(e) => setRaidOfficer(e.target.value)}
                 className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface font-semibold text-xs outline-none focus:border-primary"
               >
-                <option value="LMO Rajesh Kumar (North District)">LMO Rajesh Kumar (North District — Azadpur Mandi)</option>
-                <option value="LMO Sunita Sharma (Central Circle)">LMO Sunita Sharma (Central Circle — Chandni Chowk)</option>
-                <option value="LMO Amitabh Roy (East District)">LMO Amitabh Roy (East District — Ghazipur Mandi)</option>
-                <option value="LMO Vikramaditya Rao (South District)">LMO Vikramaditya Rao (South District — Okhla Mandi)</option>
+                {circleOfficersList.map((off) => (
+                  <option key={off.id} value={`LMO ${off.name} (${off.circle.split(" ")[1]} District)`}>
+                    LMO {off.name} ({off.circle.split(" ")[1]} District — {off.hub})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1326,10 +1414,11 @@ function AdminCommandCenterContent() {
                 onChange={(e) => setSelectedOfficer(e.target.value)}
                 className="w-full p-2.5 border border-outline-variant rounded-lg bg-surface font-semibold text-xs text-on-surface focus:border-primary outline-none"
               >
-                <option value="LMO Rajesh Kumar (North District)">LMO Rajesh Kumar (North District — Azadpur Mandi)</option>
-                <option value="LMO Sunita Sharma (Central Circle)">LMO Sunita Sharma (Central Circle — Chandni Chowk)</option>
-                <option value="LMO Amitabh Roy (East District)">LMO Amitabh Roy (East District — Ghazipur Mandi)</option>
-                <option value="LMO Vikramaditya Rao (South District)">LMO Vikramaditya Rao (South District — Okhla Mandi)</option>
+                {circleOfficersList.map((off) => (
+                  <option key={off.id} value={`LMO ${off.name} (${off.circle.split(" ")[1]})`}>
+                    LMO {off.name} ({off.circle.split(" ")[1]} District — {off.hub})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1447,6 +1536,205 @@ function AdminCommandCenterContent() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Commission Circle Officer Modal */}
+      {isCommissionModalOpen && (
+        <Modal
+          isOpen={isCommissionModalOpen}
+          onClose={() => {
+            setIsCommissionModalOpen(false);
+            setCommissionSuccessMemo(null);
+          }}
+          title="Commission Legal Metrology Officer (LMO)"
+          subtitle="Provision field enforcement officer credentials, official Badge ID, and jurisdiction circle"
+        >
+          {commissionSuccessMemo ? (
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2 text-emerald-950">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                  <span className="material-symbols-outlined text-emerald-700">verified</span>
+                  Officer Commissioned & Cleared
+                </div>
+                <p className="text-[11px] text-emerald-900 leading-relaxed">
+                  Official commissioning order has been registered in the Metrica State Inspectorate Registry. Hand over the credentials below to the officer.
+                </p>
+                <div className="bg-white p-3 rounded-xl border border-emerald-200 font-mono text-[11px] space-y-1 mt-2">
+                  <div><strong>Officer Name:</strong> {commissionSuccessMemo.officer.name}</div>
+                  <div><strong>Badge ID:</strong> {commissionSuccessMemo.officer.officerBadgeId}</div>
+                  <div><strong>Jurisdiction:</strong> {commissionSuccessMemo.officer.jurisdictionCircle}</div>
+                  <div><strong>Login Email:</strong> {commissionSuccessMemo.initialCredentials.email}</div>
+                  <div><strong>Initial Password:</strong> <span className="text-primary font-bold">{commissionSuccessMemo.initialCredentials.password}</span></div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCommissionModalOpen(false);
+                    setCommissionSuccessMemo(null);
+                  }}
+                  className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-container transition-all cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleCommissionSubmit} className="space-y-3.5 text-xs">
+              <div className="flex items-center justify-between p-2.5 bg-slate-100 rounded-xl">
+                <span className="text-slate-600 text-[11px]">Evaluation Quick Test:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewOfficerName("Suresh Menon");
+                    setNewOfficerEmail("suresh.menon.lmo@gov.in");
+                    setNewOfficerCircle("Delhi West District Circle");
+                    setNewOfficerHub("Najafgarh Mandi & Punjabi Bagh");
+                    setNewOfficerBadge("LMO-DL-W-604");
+                    setNewOfficerDesignation("Legal Metrology Inspector (Grade-I)");
+                    setNewOfficerPhone("+91 98110 55443");
+                    setNewOfficerPassword("GovPass@2026");
+                  }}
+                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-primary font-bold text-[11px] hover:bg-slate-50 cursor-pointer transition-all"
+                >
+                  ⚡ Auto-Fill Sample Officer
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Suresh Menon"
+                    value={newOfficerName}
+                    onChange={(e) => setNewOfficerName(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Official Gov Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. suresh.menon.lmo@gov.in"
+                    value={newOfficerEmail}
+                    onChange={(e) => setNewOfficerEmail(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Officer Badge ID *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. LMO-DL-W-604"
+                    value={newOfficerBadge}
+                    onChange={(e) => setNewOfficerBadge(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Designation</label>
+                  <select
+                    value={newOfficerDesignation}
+                    onChange={(e) => setNewOfficerDesignation(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
+                  >
+                    <option value="Legal Metrology Inspector (Grade-I)">Legal Metrology Inspector (Grade-I)</option>
+                    <option value="Legal Metrology Officer (Grade-II)">Legal Metrology Officer (Grade-II)</option>
+                    <option value="Senior Metrology Enforcement Officer">Senior Metrology Enforcement Officer</option>
+                    <option value="Assistant Controller of Legal Metrology">Assistant Controller of Legal Metrology</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Jurisdiction Circle</label>
+                  <select
+                    value={newOfficerCircle}
+                    onChange={(e) => setNewOfficerCircle(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
+                  >
+                    <option value="Delhi North District Circle">Delhi North District Circle</option>
+                    <option value="Delhi Central District Circle">Delhi Central District Circle</option>
+                    <option value="Delhi East District Circle">Delhi East District Circle</option>
+                    <option value="Delhi South District Circle">Delhi South District Circle</option>
+                    <option value="Delhi West District Circle">Delhi West District Circle</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Assigned Mandi / Hub</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Najafgarh Mandi"
+                    value={newOfficerHub}
+                    onChange={(e) => setNewOfficerHub(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
+                  <input
+                    type="text"
+                    placeholder="+91 98110 55443"
+                    value={newOfficerPhone}
+                    onChange={(e) => setNewOfficerPhone(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Initial Password *</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      required
+                      value={newOfficerPassword}
+                      onChange={(e) => setNewOfficerPassword(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewOfficerPassword("Metrica@" + Math.floor(1000 + Math.random() * 9000))}
+                      className="px-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold text-slate-700 text-[10px] shrink-0 cursor-pointer"
+                      title="Generate Password"
+                    >
+                      🎲
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsCommissionModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCommissioning}
+                  className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-base">badge</span>
+                  <span>{isCommissioning ? "Commissioning..." : "Commission Officer & Issue Credentials"}</span>
+                </button>
+              </div>
+            </form>
+          )}
         </Modal>
       )}
     </div>

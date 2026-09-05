@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className="h-full bg-surface" lang="en">
+    <html className="bg-surface" lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -28,7 +28,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         />
       </head>
-      <body className="bg-surface text-on-surface h-full flex flex-col font-sans antialiased overflow-hidden">
+      <body className="bg-surface text-on-surface min-h-screen font-sans antialiased">
         <MetricaProvider>
           <ToastProvider>
             {children}

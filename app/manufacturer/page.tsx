@@ -76,7 +76,7 @@ export default function ManufacturerDashboard() {
   };
 
   return (
-    <div className="bg-surface h-full flex overflow-hidden font-sans">
+    <div className="bg-surface h-screen flex overflow-hidden font-sans">
       <InstitutionalNavigation activeSection="manufacturer" />
 
       {/* Main Content Area */}

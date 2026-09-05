@@ -165,9 +165,11 @@ interface MetricaContextType {
   verifications: Verification[];
   certificates: Certificate[];
   complaints: Complaint[];
+  officers: User[];
   notifications: Notification[];
   auditLogs: AuditLog[];
   // Actions
+  commissionOfficer: (data: any) => Promise<{ ok: boolean; officer?: any; initialCredentials?: any; error?: string }>;
   addInstrument: (instrument: Omit<Instrument, "id" | "digitalInstrumentId" | "createdAt" | "riskScore" | "trustScore" | "priorityFlag">) => Instrument;
   claimInstrument: (serialNumber: string, ownerName: string, ownerAddress: string, pincode: string) => Instrument | null;
   submitApplication: (data: { instrumentId: string; type: VerificationApplication["type"]; applicantName: string; applicantPhone: string; readinessScore: number }) => VerificationApplication;
@@ -197,6 +199,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [officers, setOfficers] = useState<User[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
@@ -353,6 +356,15 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
           );
         }
       }
+
+      // 7. Circle Officers (LMO)
+      const offRes = await fetch("/api/officers");
+      if (offRes.ok) {
+        const fetchedOfficers = await offRes.json();
+        if (Array.isArray(fetchedOfficers)) {
+          setOfficers(fetchedOfficers);
+        }
+      }
     } catch (err) {
       console.warn("Backend sync notice (offline mode active):", err);
     }
@@ -387,6 +399,31 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
 
     // Initial database synchronization
     refreshDatabase();
+
+    // 1. Cross-tab instant synchronization via StorageEvent
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed.complaints)) setComplaints(parsed.complaints);
+          if (Array.isArray(parsed.instruments)) setInstruments(parsed.instruments);
+          if (Array.isArray(parsed.applications)) setApplications(parsed.applications);
+          if (Array.isArray(parsed.certificates)) setCertificates(parsed.certificates);
+          if (Array.isArray(parsed.auditLogs)) setAuditLogs(parsed.auditLogs);
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    // 2. 5-second database polling interval for multi-device live sync
+    const intervalId = setInterval(() => {
+      refreshDatabase();
+    }, 5000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(intervalId);
+    };
   }, []);
 
   // Supabase Realtime Channel Subscription & Auth State Listener
@@ -997,7 +1034,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
   const fileComplaint = (
     complaintData: Omit<Complaint, "id" | "createdAt" | "status" | "impactOnRiskScore">
   ): Complaint => {
-    const cId = "cmp-" + Date.now();
+    const cId = "CMP-2026-" + Math.floor(1000 + Math.random() * 9000);
     const newComplaint: Complaint = {
       ...complaintData,
       id: cId,
@@ -1222,12 +1259,32 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const commissionOfficer = async (data: any) => {
+    try {
+      const res = await fetch("/api/officers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.officer) {
+        setOfficers((prev) => [...prev, resData.officer]);
+        await refreshDatabase();
+        return { ok: true, officer: resData.officer, initialCredentials: resData.initialCredentials };
+      }
+      return { ok: false, error: resData.error || "Failed to commission officer" };
+    } catch (e: any) {
+      return { ok: false, error: e.message || "Network error" };
+    }
+  };
+
   const clearAllData = () => {
     setInstruments([]);
     setApplications([]);
     setVerifications([]);
     setCertificates([]);
     setComplaints([]);
+    setOfficers([]);
     setNotifications([]);
     setAuditLogs([]);
     localStorage.removeItem(STORAGE_KEY);
@@ -1249,8 +1306,10 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         verifications,
         certificates,
         complaints,
+        officers,
         notifications,
         auditLogs,
+        commissionOfficer,
         addInstrument,
         claimInstrument,
         submitApplication,

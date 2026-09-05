@@ -8,14 +8,14 @@ import { useToast } from "@/components/ui/toast";
 import { UserRole } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
-export type LoginRole = "ADMIN" | "LMO" | "OWNER" | "CITIZEN";
+export type LoginRole = "ADMIN" | "LMO" | "OWNER";
 
 export default function LoginPage() {
   const router = useRouter();
   const { loginAs, loginWithUser, registerUser, refreshDatabase } = useMetrica();
   const toast = useToast();
 
-  // Active Role Tab: ADMIN | LMO | OWNER | CITIZEN
+  // Active Role Tab: ADMIN | LMO | OWNER
   const [selectedRole, setSelectedRole] = useState<LoginRole>("ADMIN");
 
   // For Business Owner: Toggle between Sign In and Register
@@ -35,9 +35,6 @@ export default function LoginPage() {
   const [gstin, setGstin] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
   const [circle, setCircle] = useState("Delhi North District Circle");
-
-  // Citizen Certificate Lookup
-  const [citizenCertId, setCitizenCertId] = useState("");
 
   // Role tab switch handler - sets appropriate theme and clears/prepares inputs
   const handleRoleSelect = (role: LoginRole) => {
@@ -85,7 +82,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: credentialEmail,
           password: credentialPassword,
-          role: selectedRole !== "CITIZEN" ? selectedRole : undefined,
+          role: selectedRole,
         }),
       });
 
@@ -112,7 +109,7 @@ export default function LoginPage() {
       else router.push("/owner");
     } catch {
       // Fallback in case of offline dev mode
-      loginAs(selectedRole !== "CITIZEN" ? selectedRole : "OWNER");
+      loginAs(selectedRole);
       setIsAuthenticating(false);
       if (selectedRole === "ADMIN") router.push("/admin");
       else if (selectedRole === "LMO") router.push("/lmo");
@@ -200,19 +197,6 @@ export default function LoginPage() {
       toast.success("Merchant Registered", `Workspace created for ${newUser.organizationName}`);
       router.push("/owner");
     }
-  };
-
-  const handleCitizenAccess = () => {
-    loginAs("PUBLIC");
-    toast.info("Public Citizen Access", "Redirecting to public QR measurement verification tool.");
-    router.push("/qr/demo");
-  };
-
-  const handleCitizenCertSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!citizenCertId.trim()) return;
-    loginAs("PUBLIC");
-    router.push(`/qr/${encodeURIComponent(citizenCertId.trim())}`);
   };
 
   const handleQuickEvaluatorPass = async (role: UserRole) => {
@@ -348,12 +332,12 @@ export default function LoginPage() {
 
               <div className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-purple-300 shrink-0">
-                  <span className="material-symbols-outlined text-lg">qr_code_scanner</span>
+                  <span className="material-symbols-outlined text-lg">public</span>
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">4. Citizen (Consumer Shopper)</h4>
+                  <h4 className="text-xs font-bold text-white">4. Public Citizen Portal (Zero Login)</h4>
                   <p className="text-[10px] text-white/65 leading-relaxed">
-                    Zero login required. Scan QR codes on scales to verify legal stamps and report short-weighting.
+                    Consumers verify scale calibration stamps and file short-weight grievances directly on the public portal without logging in.
                   </p>
                 </div>
               </div>
@@ -385,33 +369,53 @@ export default function LoginPage() {
               <span className="text-xs font-bold text-primary">Jan Parichay Regulatory SSO</span>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCitizenAccess}
+            <Link
+              href="/"
               className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
             >
-              <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
-              Public Citizen Scan &rarr;
-            </button>
+              <span className="material-symbols-outlined text-[16px]">public</span>
+              Public Citizen Portal &rarr;
+            </Link>
           </div>
 
           {/* Main Card Content */}
           <div className="max-w-md w-full mx-auto my-auto py-4">
-            {/* 4 ROLES SELECTOR TABS (Admin, LMO, Business Owner, Citizen) */}
+            {/* Prominent Citizen Notice Box */}
+            <div className="mb-4 p-3 bg-purple-50 border border-purple-200/90 rounded-xl flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-purple-950">Are you a Consumer / Shopper?</div>
+                  <div className="text-[11px] text-purple-800/80">
+                    No account or password is required. Verify scales or report cheating on the public portal.
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/"
+                className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-xs flex items-center gap-1"
+              >
+                <span>Verify Scale</span>
+                <span>&rarr;</span>
+              </Link>
+            </div>
+
+            {/* 3 INSTITUTIONAL ROLES SELECTOR TABS (Admin, LMO, Business Owner) */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
-                  Select Your Role to Continue
+                  Select Institutional Role to Continue
                 </label>
                 <span className="text-[10px] text-outline font-medium">
                   {selectedRole === "ADMIN" && "Controller Clearance"}
                   {selectedRole === "LMO" && "Inspector Docket"}
                   {selectedRole === "OWNER" && "Commercial Licensee"}
-                  {selectedRole === "CITIZEN" && "Public Access"}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {/* 1. Admin */}
                 <button
                   type="button"
@@ -463,24 +467,6 @@ export default function LoginPage() {
                   <span className="text-xs leading-tight">Business</span>
                   <span className={`text-[9px] ${selectedRole === "OWNER" ? "text-indigo-200" : "text-outline"}`}>
                     Merchant
-                  </span>
-                </button>
-
-                {/* 4. Citizen */}
-                <button
-                  type="button"
-                  id="tab-role-citizen"
-                  onClick={() => handleRoleSelect("CITIZEN")}
-                  className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                    selectedRole === "CITIZEN"
-                      ? "border-purple-700 bg-purple-700 text-white shadow-md font-bold ring-2 ring-purple-700/30"
-                      : "border-outline-variant bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl">group</span>
-                  <span className="text-xs leading-tight">Citizen</span>
-                  <span className={`text-[9px] ${selectedRole === "CITIZEN" ? "text-purple-200" : "text-outline"}`}>
-                    Consumer
                   </span>
                 </button>
               </div>
@@ -611,11 +597,11 @@ export default function LoginPage() {
                   </button>
                 </form>
 
-                <div className="p-2.5 rounded-lg bg-surface-container-low border border-outline-variant text-[11px] text-on-surface-variant flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm text-outline">badge</span>
-                  <span>
-                    Field Officers must sign in using verified departmental service credentials linked to their district circle.
-                  </span>
+                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-sm text-emerald-700 mt-0.5 shrink-0">verified_user</span>
+                  <div className="leading-snug">
+                    <strong>Statutory Inspector Clearance:</strong> Field Officers (LMO) cannot self-register publicly. Official credentials and Badge IDs are commissioned exclusively by the Office of the State Controller of Legal Metrology.
+                  </div>
                 </div>
               </div>
             )}
@@ -848,57 +834,6 @@ export default function LoginPage() {
                 )}
               </div>
             )}
-
-            {/* TAB 4: CITIZEN (PUBLIC CONSUMER ACCESS) */}
-            {selectedRole === "CITIZEN" && (
-              <div className="space-y-4">
-                <div className="p-4 bg-purple-50/80 border border-purple-200 rounded-xl text-center">
-                  <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto mb-2">
-                    <span className="material-symbols-outlined text-2xl">qr_code_scanner</span>
-                  </div>
-                  <h3 className="font-bold text-sm text-purple-950">Zero Login Required for Citizens</h3>
-                  <p className="text-xs text-purple-900/70 mt-1 leading-relaxed">
-                    Under the Legal Metrology Act, every consumer has the statutory right to verify scale calibration stamps and report suspicion anonymously.
-                  </p>
-                </div>
-
-                <div className="space-y-2.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={handleCitizenAccess}
-                    className="w-full py-3 bg-purple-700 text-white rounded-lg font-bold text-xs shadow-sm hover:bg-purple-800 transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
-                    Open Public QR Scale Verification Card &rarr;
-                  </button>
-
-                  <form onSubmit={handleCitizenCertSearch} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter Scale ID (e.g. DL-SCALE-001)"
-                      value={citizenCertId}
-                      onChange={(e) => setCitizenCertId(e.target.value)}
-                      className="flex-1 p-2 border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface outline-none focus:border-purple-700 font-mono text-xs"
-                    />
-                    <button
-                      type="submit"
-                      className="px-3 py-2 bg-purple-100 border border-purple-300 text-purple-900 rounded-lg font-bold hover:bg-purple-200 transition-all text-xs flex items-center gap-1 shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-sm">search</span>
-                      Verify
-                    </button>
-                  </form>
-
-                  <Link
-                    href="/qr/demo?action=report"
-                    className="w-full py-2.5 bg-surface border border-outline-variant text-on-surface rounded-lg font-semibold text-xs hover:bg-surface-container transition-all flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-sm text-error">report_problem</span>
-                    File Consumer Grievance (Short Weight / Broken Seal)
-                  </Link>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* BOTTOM EVALUATOR 1-CLICK FAST PASS */}
@@ -916,7 +851,7 @@ export default function LoginPage() {
                 type="button"
                 id="btn-fastpass-admin"
                 onClick={() => handleQuickEvaluatorPass("ADMIN")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-[#002B5B] hover:bg-blue-50/50 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-[#002B5B] hover:bg-blue-50/50 transition-all text-left group cursor-pointer"
               >
                 <div className="font-bold text-[#002B5B] text-[11px] group-hover:underline">Controller</div>
                 <div className="text-[10px] text-outline truncate">Dr. S. K. Verma</div>
@@ -926,7 +861,7 @@ export default function LoginPage() {
                 type="button"
                 id="btn-fastpass-lmo"
                 onClick={() => handleQuickEvaluatorPass("LMO")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-emerald-700 hover:bg-emerald-50/50 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-emerald-700 hover:bg-emerald-50/50 transition-all text-left group cursor-pointer"
               >
                 <div className="font-bold text-emerald-700 text-[11px] group-hover:underline">Inspector</div>
                 <div className="text-[10px] text-outline truncate">Rajesh Kumar</div>
@@ -936,21 +871,23 @@ export default function LoginPage() {
                 type="button"
                 id="btn-fastpass-owner"
                 onClick={() => handleQuickEvaluatorPass("OWNER")}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-indigo-700 hover:bg-indigo-50/50 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-indigo-700 hover:bg-indigo-50/50 transition-all text-left group cursor-pointer"
               >
                 <div className="font-bold text-indigo-700 text-[11px] group-hover:underline">Merchant</div>
                 <div className="text-[10px] text-outline truncate">Ramesh Patel</div>
               </button>
 
-              <button
-                type="button"
+              <Link
+                href="/"
                 id="btn-fastpass-citizen"
-                onClick={handleCitizenAccess}
-                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-purple-700 hover:bg-purple-50/50 transition-all text-left group"
+                className="p-2 rounded-lg bg-surface border border-outline-variant hover:border-purple-700 hover:bg-purple-50/50 transition-all text-left group flex flex-col justify-between"
               >
-                <div className="font-bold text-purple-700 text-[11px] group-hover:underline">Citizen</div>
-                <div className="text-[10px] text-outline truncate">Public QR Scan</div>
-              </button>
+                <div className="font-bold text-purple-700 text-[11px] group-hover:underline flex items-center justify-between">
+                  <span>Citizen</span>
+                  <span className="text-[9px] bg-purple-100 text-purple-800 px-1 rounded font-bold">PUBLIC</span>
+                </div>
+                <div className="text-[10px] text-outline truncate">Public Portal &rarr;</div>
+              </Link>
             </div>
           </div>
         </div>

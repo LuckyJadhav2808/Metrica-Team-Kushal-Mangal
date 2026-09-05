@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useMetrica } from "@/lib/store";
 import { Modal } from "@/components/ui/modal";
+import { FormADocument } from "@/components/form-a-document";
 
 export default function PublicQRVerificationPage() {
   const params = useParams();
@@ -21,10 +22,12 @@ export default function PublicQRVerificationPage() {
   const [searchInput, setSearchInput] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isRightsGuideOpen, setIsRightsGuideOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Fallback DB fetch state if store is still populating
   const [dbInst, setDbInst] = useState<any>(null);
   const [dbCert, setDbCert] = useState<any>(null);
+  const [isSearchingDb, setIsSearchingDb] = useState(true);
 
   // Find instrument in store
   const storeInst = useMemo(() => {
@@ -48,7 +51,12 @@ export default function PublicQRVerificationPage() {
 
   // If not in store, query database API
   useEffect(() => {
-    if (!storeInst && targetLookup) {
+    if (storeInst) {
+      setIsSearchingDb(false);
+      return;
+    }
+    if (targetLookup) {
+      setIsSearchingDb(true);
       fetch(`/api/instruments?search=${encodeURIComponent(targetLookup)}`)
         .then((r) => (r.ok ? r.json() : []))
         .then((items) => {
@@ -67,7 +75,12 @@ export default function PublicQRVerificationPage() {
             }
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          setIsSearchingDb(false);
+        });
+    } else {
+      setIsSearchingDb(false);
     }
   }, [storeInst, targetLookup]);
 
@@ -136,7 +149,13 @@ export default function PublicQRVerificationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
+    <>
+      {/* Standalone Printable Document (Exclusively shown during @media print) */}
+      <div className="hidden print:block print-only-container">
+        <FormADocument instrument={inst} certificate={cert} />
+      </div>
+
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16 screen-only-view">
       {/* Sovereign Tricolor Header Ribbon */}
       <div className="h-1.5 w-full flex">
         <div className="flex-1 bg-[#FF9933]" />
@@ -267,6 +286,26 @@ export default function PublicQRVerificationPage() {
               }`}
             >
               🟡 Okhla (Stamping Expired)
+            </button>
+            <button
+              onClick={() => handlePresetSelect("IND-MET-2026-JW01")}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                targetLookup.includes("JW01")
+                  ? "bg-blue-50 text-blue-800 border-blue-300 ring-1 ring-blue-400"
+                  : "bg-slate-50 hover:bg-blue-50 text-slate-700 border-slate-200"
+              }`}
+            >
+              💎 Chandni Chowk (Class II Gold)
+            </button>
+            <button
+              onClick={() => handlePresetSelect("IND-MET-2026-AZ02")}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                targetLookup.includes("AZ02")
+                  ? "bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-400"
+                  : "bg-slate-50 hover:bg-rose-50 text-slate-700 border-slate-200"
+              }`}
+            >
+              ⚠️ Broken Seal Yard Scale
             </button>
             <button
               onClick={() => handlePresetSelect("55201")}
@@ -498,8 +537,9 @@ export default function PublicQRVerificationPage() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => window.print()}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    type="button"
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                   >
                     <span className="material-symbols-outlined text-[16px]">print</span>
                     <span>Print Form-A</span>
@@ -514,6 +554,17 @@ export default function PublicQRVerificationPage() {
                 </div>
               </div>
             </div>
+          </div>
+        ) : isSearchingDb ? (
+          /* Live Regulatory Register Querying Pulse */
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center mb-6">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-[#002B5B] flex items-center justify-center mx-auto mb-3 border border-blue-200">
+              <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Querying National Metrology Register...</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 font-mono">
+              Verifying cryptographic Form-A seal for {targetLookup}
+            </p>
           </div>
         ) : (
           /* Instrument Not Found State */
@@ -750,7 +801,7 @@ export default function PublicQRVerificationPage() {
                   value={citizenName}
                   onChange={(e) => setCitizenName(e.target.value)}
                   placeholder="Leave blank for anonymous"
-                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#002B5B]/20 focus:border-[#002B5B] transition-all"
                 />
               </div>
               <div>
@@ -760,7 +811,7 @@ export default function PublicQRVerificationPage() {
                   value={citizenPhone}
                   onChange={(e) => setCitizenPhone(e.target.value)}
                   placeholder="+91 98XXX XXXXX"
-                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#002B5B]/20 focus:border-[#002B5B] transition-all font-mono"
                 />
               </div>
             </div>
@@ -770,7 +821,7 @@ export default function PublicQRVerificationPage() {
               <select
                 value={reportCategory}
                 onChange={(e) => setReportCategory(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white font-medium focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#002B5B]/20 focus:border-[#002B5B] transition-all cursor-pointer"
               >
                 <option value="SHORT_WEIGHT">Short Weight / Under-weighing (तौल में कमी)</option>
                 <option value="BROKEN_SEAL">Damaged, Cut or Missing Holographic Seal (सील टूटी हुई)</option>
@@ -789,7 +840,7 @@ export default function PublicQRVerificationPage() {
                 value={observedDiscrepancy}
                 onChange={(e) => setObservedDiscrepancy(e.target.value)}
                 placeholder="e.g. 5 kg bag showed 4.65 kg on kitchen scale (350 g short)"
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#002B5B]/20 focus:border-[#002B5B] transition-all"
               />
             </div>
 
@@ -800,29 +851,70 @@ export default function PublicQRVerificationPage() {
                 value={reportDesc}
                 onChange={(e) => setReportDesc(e.target.value)}
                 placeholder="Describe vendor location, stall number, commodity purchased, or any conversation with the seller..."
-                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#002B5B]/20 focus:border-[#002B5B] transition-all"
                 required
               />
             </div>
 
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={handleCloseReport}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-semibold"
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-100 font-semibold cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold shadow-xs transition-colors"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                Submit Official Complaint
+                <span className="material-symbols-outlined text-[16px]">gavel</span>
+                <span>Submit Official Complaint</span>
               </button>
             </div>
           </form>
         )}
       </Modal>
+
+      {/* Official Form-A Certificate Preview Modal */}
+      <Modal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        title="Form-A Verification Certificate (Official Gazette Copy)"
+        subtitle="Issued under Section 24 of The Legal Metrology Act, 2009 & Rule 24(1) of Legal Metrology (General) Rules, 2011"
+        maxWidth="2xl"
+      >
+        <div className="space-y-4">
+          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-inner bg-slate-100 p-2 max-h-[65vh] overflow-y-auto">
+            <FormADocument instrument={inst} certificate={cert} />
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+            <div className="text-slate-500 text-[11px] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
+              <span>Conforms to Schedule XI Statutory Gazette Format</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-100 font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">print</span>
+                <span>Print / Download PDF (A4)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
+  </>
   );
 }

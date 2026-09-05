@@ -8,6 +8,7 @@ import { useMetrica } from "@/lib/store";
 import { useToast } from "@/components/ui/toast";
 import { Modal } from "@/components/ui/modal";
 import { Certificate } from "@/lib/types";
+import { FormADocument } from "@/components/form-a-document";
 
 export default function LMOFieldVerificationPage() {
   const { applications, instruments, submitVerification, currentUser, loginAs } = useMetrica();
@@ -28,7 +29,9 @@ export default function LMOFieldVerificationPage() {
     };
   }, []);
 
-  const assignedCases = applications.filter((a) => a.status === "SCHEDULED" || a.status === "IN_PROGRESS");
+  const assignedCases = applications.filter(
+    (a) => a.status === "SCHEDULED" || a.status === "IN_PROGRESS" || a.status === "ASSIGNED"
+  );
   const [selectedAppId, setSelectedAppId] = useState<string>(assignedCases.length > 0 ? assignedCases[0].id : "");
 
   const currentApp = applications.find((a) => a.id === selectedAppId) || (assignedCases.length > 0 ? assignedCases[0] : null);
@@ -68,7 +71,7 @@ export default function LMOFieldVerificationPage() {
   // RBAC Barrier if visitor is a commercial merchant or manufacturer
   if (currentUser.role === "OWNER" || currentUser.role === "MANUFACTURER") {
     return (
-      <div className="bg-surface h-full flex overflow-hidden font-sans">
+      <div className="bg-surface h-screen flex overflow-hidden font-sans">
         <InstitutionalNavigation activeSection="docket" />
         <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
           <InstitutionalHeader title="Field Officer Inspection Workspace" />
@@ -189,12 +192,12 @@ export default function LMOFieldVerificationPage() {
   };
 
   return (
-    <div className="bg-surface h-full flex overflow-hidden font-sans">
+    <div className="bg-surface h-screen flex overflow-hidden font-sans">
       {/* Persistent Left Sidebar Navigation */}
       <InstitutionalNavigation activeSection="docket" />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0 screen-only-view">
         {/* Universal Top Header with Masthead */}
         <InstitutionalHeader title="Field Officer Inspection Workspace" />
 
@@ -724,7 +727,7 @@ export default function LMOFieldVerificationPage() {
                 onClick={() => {
                   window.print();
                 }}
-                className="flex-1 py-2.5 bg-surface border border-outline-variant text-on-surface rounded-lg font-semibold hover:bg-surface-container flex items-center justify-center gap-1"
+                className="flex-1 py-2.5 bg-surface border border-outline-variant text-on-surface rounded-lg font-semibold hover:bg-surface-container flex items-center justify-center gap-1 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">print</span>
                 Print Form-A
@@ -732,13 +735,20 @@ export default function LMOFieldVerificationPage() {
               <button
                 type="button"
                 onClick={() => setIssuedCert(null)}
-                className="flex-1 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary-container"
+                className="flex-1 py-2.5 bg-primary text-white rounded-lg font-bold hover:bg-primary-container cursor-pointer"
               >
                 Done
               </button>
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Standalone Printable Document (Exclusively shown during @media print) */}
+      {issuedCert && (
+        <div className="hidden print:block print-only-container">
+          <FormADocument instrument={currentInst} certificate={issuedCert} />
+        </div>
       )}
     </div>
   );

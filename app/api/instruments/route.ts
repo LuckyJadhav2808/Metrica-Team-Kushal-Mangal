@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
 
     const instruments = await prisma.instrument.findMany({
       where,
+      include: {
+        certificates: true,
+      },
       orderBy: { createdAt: "desc" },
     });
 

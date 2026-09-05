@@ -5,83 +5,192 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMetrica } from "@/lib/store";
 
+interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  icon: string;
+  badge?: number | string;
+  badgeColor?: string;
+}
+
 interface NavProps {
   activeSection?: string;
 }
 
 export function InstitutionalNavigation({ activeSection }: NavProps) {
   const pathname = usePathname();
-  const { currentUser, logout } = useMetrica();
+  const { currentUser, instruments, applications, complaints, certificates, logout } = useMetrica();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Generate role-specific navigation links
-  const getNavLinks = () => {
+  // Compute live contextual counts for senior-dev responsive badges
+  const pendingAppsCount = applications.filter(
+    (a) => a.status === "PAYMENT_COMPLETED_PENDING_ASSIGNMENT" || a.status === "DRAFT" || a.status === "PAYMENT_PENDING"
+  ).length;
+
+  const highRiskCount = instruments.filter(
+    (i) => (i.riskScore && i.riskScore >= 50) || i.status === "SUSPENDED_TAMPERED" || i.priorityFlag === "CRITICAL"
+  ).length;
+
+  const loggedComplaintsCount = complaints.filter(
+    (c) => c.status === "LOGGED" || c.status === "UNDER_INVESTIGATION"
+  ).length;
+
+  const lmoAssignedCount = applications.filter(
+    (a) => a.assignedOfficerId === currentUser.id || a.status === "ASSIGNED" || a.status === "SCHEDULED"
+  ).length;
+
+  const activeCertsCount = certificates.filter((c) => c.status === "ACTIVE_VALID").length;
+
+  // Generate 100% role-isolated navigation links
+  const getNavLinks = (): {
+    primaryTitle: string;
+    primary: NavItem[];
+    secondaryTitle: string;
+    secondary: NavItem[];
+  } => {
     switch (currentUser.role) {
       case "LMO":
         return {
+          primaryTitle: "Field Operations",
           primary: [
-            { id: "docket", label: "Field Inspection Docket", href: "/lmo", icon: "fact_check" },
-            { id: "history", label: "Verification Certificates", href: "/lmo?view=certs", icon: "verified" },
-            { id: "standards", label: "Standards & Weights", href: "/lmo?view=standards", icon: "scale" },
+            {
+              id: "docket",
+              label: "Assigned Docket",
+              href: "/lmo",
+              icon: "fact_check",
+              badge: lmoAssignedCount > 0 ? lmoAssignedCount : undefined,
+              badgeColor: "bg-primary text-white",
+            },
+            {
+              id: "history",
+              label: "Form-A Certificates",
+              href: "/lmo?view=certs",
+              icon: "verified",
+              badge: certificates.length > 0 ? certificates.length : undefined,
+            },
+            {
+              id: "standards",
+              label: "Working Standards (Weights)",
+              href: "/lmo?view=standards",
+              icon: "scale",
+            },
           ],
-          secondaryTitle: "Regulatory Portals",
+          secondaryTitle: "Field Inspection Tools",
           secondary: [
-            { id: "dashboard", label: "Command Center", href: "/admin", icon: "dashboard" },
-            { id: "instruments", label: "Merchant Registry", href: "/owner", icon: "storefront" },
-            { id: "qr", label: "Public QR Scanner", href: "/qr/demo", icon: "qr_code_scanner" },
+            { id: "qr", label: "Scan & Verify Scale QR", href: "/qr/demo", icon: "qr_code_scanner" },
+            { id: "offline", label: "Offline Sync Queue", href: "/lmo?view=offline", icon: "cloud_sync" },
+            { id: "notices", label: "Section 25 Stop-Use", href: "/lmo?view=notices", icon: "warning" },
           ],
         };
+
       case "OWNER":
         return {
+          primaryTitle: "Establishment Scales",
           primary: [
-            { id: "instruments", label: "My Scales & Instruments", href: "/owner?tab=instruments", icon: "precision_manufacturing" },
-            { id: "apply", label: "Apply for Stamping", href: "/owner?tab=applications", icon: "edit_document" },
-            { id: "vault", label: "Certificate Vault", href: "/owner?tab=vault", icon: "verified_user" },
-            { id: "readiness", label: "Compliance Readiness", href: "/owner?tab=readiness", icon: "rule" },
+            {
+              id: "instruments",
+              label: "My Scales & Instruments",
+              href: "/owner?tab=instruments",
+              icon: "precision_manufacturing",
+              badge: instruments.length > 0 ? instruments.length : undefined,
+            },
+            {
+              id: "apply",
+              label: "Apply for Stamping (Form-1)",
+              href: "/owner?tab=applications",
+              icon: "edit_document",
+              badge: applications.length > 0 ? applications.length : undefined,
+            },
+            {
+              id: "vault",
+              label: "Certificate Vault (Form-A)",
+              href: "/owner?tab=vault",
+              icon: "verified_user",
+              badge: activeCertsCount > 0 ? activeCertsCount : undefined,
+              badgeColor: "bg-emerald-600 text-white",
+            },
+            {
+              id: "readiness",
+              label: "Compliance Readiness",
+              href: "/owner?tab=readiness",
+              icon: "rule",
+            },
           ],
-          secondaryTitle: "Services & Redressal",
+          secondaryTitle: "Merchant Services",
           secondary: [
-            { id: "qr", label: "Verify Scale QR", href: "/qr/demo", icon: "qr_code_scanner" },
-            { id: "grievance", label: "Citizen Grievance Redressal", href: "/qr/demo?action=report", icon: "support_agent" },
+            { id: "qr", label: "Test Scale QR Display", href: "/qr/demo", icon: "qr_code_scanner" },
+            { id: "challan", label: "Treasury Fee Receipts", href: "/owner?tab=applications", icon: "receipt_long" },
+            { id: "feedback", label: "Consumer Feedback", href: "/owner?tab=instruments", icon: "reviews" },
           ],
         };
+
       case "MANUFACTURER":
         return {
+          primaryTitle: "Production Line",
           primary: [
             { id: "manufacturer", label: "Model Birth Registry", href: "/manufacturer", icon: "approval" },
-            { id: "mint", label: "Mint Digital IDs", href: "/manufacturer?action=mint", icon: "qr_code_2" },
+            { id: "mint", label: "Batch Serial Minter", href: "/manufacturer?action=mint", icon: "qr_code_2" },
             { id: "supply", label: "Supply Chain Transit", href: "/manufacturer?view=supply", icon: "local_shipping" },
           ],
-          secondaryTitle: "Enforcement",
+          secondaryTitle: "Technical Standards",
           secondary: [
-            { id: "dashboard", label: "Command Center", href: "/admin", icon: "dashboard" },
-            { id: "qr", label: "Public QR Check", href: "/qr/demo", icon: "qr_code_scanner" },
+            { id: "specs", label: "Load Cell Schematics", href: "/manufacturer?tab=models", icon: "description" },
+            { id: "qr", label: "Verify Minted QR", href: "/qr/demo", icon: "qr_code_scanner" },
           ],
         };
+
       case "ADMIN":
       default:
         return {
+          primaryTitle: "Statewide Portals",
           primary: [
             { id: "dashboard", label: "Command Center", href: "/admin", icon: "dashboard" },
             { id: "field", label: "Field Inspections (LMO)", href: "/lmo", icon: "checklist" },
             { id: "instruments", label: "Merchant Instruments", href: "/owner", icon: "storefront" },
             { id: "manufacturer", label: "Manufacturer Registry", href: "/manufacturer", icon: "precision_manufacturing" },
-            { id: "qr", label: "Public QR Check", href: "/qr/demo", icon: "qr_code_scanner" },
+            { id: "qr", label: "Public Citizen Portal", href: "/qr/demo", icon: "qr_code_scanner" },
           ],
-          secondaryTitle: "Command Oversight",
+          secondaryTitle: "Command Oversight (Strictly Admin)",
           secondary: [
-            { id: "assignments", label: "Assignment Queue", href: "/admin?filter=PENDING", icon: "assignment_ind" },
-            { id: "flags", label: "Priority Flags", href: "/admin?filter=HIGH_RISK", icon: "flag" },
-            { id: "complaints", label: "Citizen Grievances", href: "/admin?filter=COMPLAINTS", icon: "report_problem" },
-            { id: "workload", label: "Officer Workload", href: "/admin?view=workload", icon: "group" },
+            {
+              id: "assignments",
+              label: "Assignment Queue",
+              href: "/admin?filter=PENDING",
+              icon: "assignment_ind",
+              badge: pendingAppsCount > 0 ? pendingAppsCount : undefined,
+              badgeColor: "bg-blue-600 text-white",
+            },
+            {
+              id: "flags",
+              label: "Priority Anomaly Flags",
+              href: "/admin?filter=HIGH_RISK",
+              icon: "flag",
+              badge: highRiskCount > 0 ? highRiskCount : undefined,
+              badgeColor: "bg-rose-600 text-white",
+            },
+            {
+              id: "complaints",
+              label: "Citizen Grievances",
+              href: "/admin?filter=COMPLAINTS",
+              icon: "report_problem",
+              badge: loggedComplaintsCount > 0 ? loggedComplaintsCount : undefined,
+              badgeColor: "bg-amber-600 text-white",
+            },
+            {
+              id: "workload",
+              label: "Officer Workload",
+              href: "/admin?view=workload",
+              icon: "group",
+            },
           ],
         };
     }
   };
 
-  const { primary, secondaryTitle, secondary } = getNavLinks();
+  const { primaryTitle, primary, secondaryTitle, secondary } = getNavLinks();
 
-  const renderLink = (item: { id: string; label: string; href: string; icon: string }) => {
+  const renderLink = (item: NavItem) => {
     let isActive = false;
     if (activeSection) {
       isActive = activeSection.toLowerCase() === item.id.toLowerCase();
@@ -98,14 +207,25 @@ export function InstitutionalNavigation({ activeSection }: NavProps) {
         key={item.label}
         href={item.href}
         onClick={() => setMobileMenuOpen(false)}
-        className={`flex items-center gap-3 px-4 py-2.5 text-xs transition-all duration-150 rounded-lg mx-2 my-0.5 ${
+        className={`flex items-center justify-between px-3.5 py-2.5 text-xs transition-all duration-150 rounded-lg mx-2 my-0.5 ${
           isActive
             ? "bg-primary text-white font-semibold shadow-sm"
             : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
         }`}
       >
-        <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-        <span className="truncate">{item.label}</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="material-symbols-outlined text-[18px] shrink-0">{item.icon}</span>
+          <span className="truncate">{item.label}</span>
+        </div>
+        {item.badge !== undefined && item.badge !== null && item.badge !== 0 && (
+          <span
+            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5 leading-none ${
+              item.badgeColor || (isActive ? "bg-white/25 text-white" : "bg-surface-container text-on-surface")
+            }`}
+          >
+            {item.badge}
+          </span>
+        )}
       </Link>
     );
   };
@@ -118,6 +238,7 @@ export function InstitutionalNavigation({ activeSection }: NavProps) {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="text-on-surface-variant p-2 rounded-lg hover:bg-surface-container transition-colors"
+            aria-label="Toggle navigation menu"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
@@ -156,7 +277,7 @@ export function InstitutionalNavigation({ activeSection }: NavProps) {
             <div className="space-y-1">
               <div className="px-4 py-2">
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                  {currentUser.role} Workspace
+                  {primaryTitle}
                 </p>
               </div>
               {primary.map(renderLink)}
@@ -212,7 +333,7 @@ export function InstitutionalNavigation({ activeSection }: NavProps) {
           <div>
             <div className="px-4 mb-1.5 flex items-center justify-between">
               <span className="text-[10px] font-bold text-outline uppercase tracking-wider">
-                {currentUser.role} Navigation
+                {primaryTitle}
               </span>
               <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface-container font-mono text-primary font-semibold">
                 {currentUser.role}

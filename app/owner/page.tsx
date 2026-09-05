@@ -9,6 +9,7 @@ import { useMetrica } from "@/lib/store";
 import { Instrument, InstrumentCategory } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { FormADocument } from "@/components/form-a-document";
 
 function OwnerDashboardContent() {
   const { instruments, applications, certificates, addInstrument, submitApplication, payApplicationFee, currentUser } = useMetrica();
@@ -28,6 +29,7 @@ function OwnerDashboardContent() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [selectedInst, setSelectedInst] = useState<Instrument | null>(null);
+  const [selectedCertForPrint, setSelectedCertForPrint] = useState<any>(null);
 
   // Form states
   const [name, setName] = useState("");
@@ -95,11 +97,11 @@ function OwnerDashboardContent() {
   };
 
   return (
-    <div className="bg-surface h-full flex overflow-hidden font-sans">
+    <div className="bg-surface h-screen flex overflow-hidden font-sans">
       <InstitutionalNavigation activeSection={activeTab} />
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0">
+      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0 screen-only-view">
         <InstitutionalHeader title="Merchant & Owner Workspace" />
 
         {/* Executive Sub-Section Header Tier */}
@@ -448,8 +450,9 @@ function OwnerDashboardContent() {
 
                       <div className="mt-4 pt-3 border-t border-outline-variant flex gap-2">
                         <button
-                          onClick={() => window.print()}
-                          className="flex-1 py-1.5 bg-surface border border-outline-variant rounded text-xs font-semibold hover:bg-surface-container flex items-center justify-center gap-1"
+                          type="button"
+                          onClick={() => setSelectedCertForPrint(cert)}
+                          className="flex-1 py-1.5 bg-surface border border-outline-variant rounded text-xs font-semibold hover:bg-surface-container flex items-center justify-center gap-1 cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-[14px]">print</span>
                           Print Certificate
@@ -623,6 +626,86 @@ function OwnerDashboardContent() {
           </form>
         )}
       </Modal>
+
+      {/* Form-A Preview Modal for Merchant Vault */}
+      <Modal
+        isOpen={!!selectedCertForPrint}
+        onClose={() => setSelectedCertForPrint(null)}
+        title="Form-A Verification Certificate (Official Gazette Copy)"
+        subtitle="Issued under Section 24 of The Legal Metrology Act, 2009 & Rule 24(1) of Legal Metrology (General) Rules, 2011"
+        maxWidth="2xl"
+      >
+        <div className="space-y-4">
+          <div className="border border-slate-200 rounded-xl overflow-hidden shadow-inner bg-slate-100 p-2 max-h-[65vh] overflow-y-auto">
+            {selectedCertForPrint && (
+              <FormADocument
+                certificate={selectedCertForPrint}
+                instrument={
+                  instruments.find(
+                    (i) =>
+                      i.id === selectedCertForPrint.instrumentId ||
+                      i.digitalInstrumentId === selectedCertForPrint.digitalInstrumentId
+                  ) || {
+                    digitalInstrumentId: selectedCertForPrint.digitalInstrumentId,
+                    ownerName: currentUser.name,
+                    ownerAddress: "Licensed APMC Market Premises, Delhi",
+                    pincode: "110006",
+                    modelName: "Commercial Weighing Instrument",
+                    serialNumber: selectedCertForPrint.digitalInstrumentId,
+                  }
+                }
+              />
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+            <div className="text-slate-500 text-[11px] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
+              <span>Statutory Legal Metrology Gazette Copy</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedCertForPrint(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-100 font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">print</span>
+                <span>Print / Download PDF (A4)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Standalone Printable Document (Exclusively shown during @media print) */}
+      {selectedCertForPrint && (
+        <div className="hidden print:block print-only-container">
+          <FormADocument
+            certificate={selectedCertForPrint}
+            instrument={
+              instruments.find(
+                (i) =>
+                  i.id === selectedCertForPrint.instrumentId ||
+                  i.digitalInstrumentId === selectedCertForPrint.digitalInstrumentId
+              ) || {
+                digitalInstrumentId: selectedCertForPrint.digitalInstrumentId,
+                ownerName: currentUser.name,
+                ownerAddress: "Licensed APMC Market Premises, Delhi",
+                pincode: "110006",
+                modelName: "Commercial Weighing Instrument",
+                serialNumber: selectedCertForPrint.digitalInstrumentId,
+              }
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
