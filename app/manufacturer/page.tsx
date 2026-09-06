@@ -77,7 +77,7 @@ export default function ManufacturerDashboard() {
 
   return (
     <div className="bg-surface h-screen flex overflow-hidden font-sans">
-      <InstitutionalNavigation activeSection="manufacturer" />
+      <InstitutionalNavigation activeSection="manufacturer" role="MANUFACTURER" />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">

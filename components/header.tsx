@@ -71,13 +71,21 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
       }
     : { instruments: [], applications: [] };
 
-  const handlePersonaSwitch = (role: UserRole) => {
-    loginAs(role);
+  const handlePersonaSwitch = async (role: UserRole) => {
     setIsProfileOpen(false);
+    await loginAs(role);
     if (role === "ADMIN") router.push("/admin");
     else if (role === "LMO") router.push("/lmo");
     else if (role === "OWNER") router.push("/owner");
     else if (role === "MANUFACTURER") router.push("/manufacturer");
+  };
+
+  const handlePortalSelect = async (portal: typeof portalsList[0]) => {
+    setIsPortalsOpen(false);
+    if (portal.roleReq && portal.roleReq !== "PUBLIC") {
+      await loginAs(portal.roleReq as UserRole);
+    }
+    router.push(portal.href);
   };
 
   const handleSignOut = () => {
@@ -117,7 +125,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
     },
     {
       name: "Public Citizen QR Trust Page",
-      href: "/qr/demo",
+      href: "/qr",
       desc: "Smartphone verification, trust seal, consumer grievances",
       roleReq: "PUBLIC",
       icon: "qr_code_scanner",
@@ -197,11 +205,11 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
                 </div>
                 <div className="p-2 divide-y divide-outline-variant/60">
                   {portalsList.map((portal) => (
-                    <Link
+                    <button
                       key={portal.name}
-                      href={portal.href}
-                      onClick={() => setIsPortalsOpen(false)}
-                      className="p-2.5 flex items-start gap-3 rounded-lg hover:bg-surface-container transition-colors group"
+                      type="button"
+                      onClick={() => handlePortalSelect(portal)}
+                      className="w-full text-left p-2.5 flex items-start gap-3 rounded-lg hover:bg-surface-container transition-colors group cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
                         <span className="material-symbols-outlined text-[18px]">{portal.icon}</span>
@@ -217,7 +225,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
                           {portal.desc}
                         </p>
                       </div>
-                    </Link>
+                    </button>
                   ))}
                 </div>
               </div>

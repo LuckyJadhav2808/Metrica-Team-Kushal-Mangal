@@ -325,7 +325,7 @@ function AdminCommandCenterContent() {
   return (
     <div className="bg-surface h-screen flex overflow-hidden">
       {/* Dynamic Sidebar highlighting based on activeTab */}
-      <InstitutionalNavigation activeSection={activeTab.toLowerCase()} />
+      <InstitutionalNavigation activeSection={activeTab.toLowerCase()} role="ADMIN" />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">

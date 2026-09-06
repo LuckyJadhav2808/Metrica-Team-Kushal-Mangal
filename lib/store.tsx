@@ -155,7 +155,7 @@ interface MetricaContextType {
   currentUser: User;
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
-  loginAs: (role: UserRole) => void;
+  loginAs: (role: UserRole) => Promise<void> | void;
   loginWithUser: (user: User) => void;
   registerUser: (userData: Omit<User, "id">) => User;
   logout: () => void;
@@ -521,10 +521,27 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, currentUser, instruments, applications, verifications, certificates, complaints, notifications, auditLogs]);
 
-  const loginAs = (role: UserRole) => {
-    const user = GOVERNMENT_PERSONAS[role] || GOVERNMENT_PERSONAS.PUBLIC;
-    setCurrentUser(user);
-    logAudit("User", user.id, user.name, role, "LOGIN", `Signed in as ${user.designation}`);
+  const loginAs = async (role: UserRole) => {
+    const fallbackUser = GOVERNMENT_PERSONAS[role] || GOVERNMENT_PERSONAS.PUBLIC;
+    setCurrentUser(fallbackUser);
+
+    try {
+      const res = await fetch("/api/auth/switch-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setCurrentUser(data.user);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not sync server session on role switch:", err);
+    }
+
+    logAudit("User", fallbackUser.id, fallbackUser.name, role, "LOGIN", `Signed in as ${fallbackUser.designation}`);
   };
 
   const loginWithUser = (user: User) => {

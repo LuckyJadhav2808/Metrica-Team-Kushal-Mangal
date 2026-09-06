@@ -98,7 +98,7 @@ function OwnerDashboardContent() {
 
   return (
     <div className="bg-surface h-screen flex overflow-hidden font-sans">
-      <InstitutionalNavigation activeSection={activeTab} />
+      <InstitutionalNavigation activeSection={activeTab} role="OWNER" />
 
       {/* Main Content Area */}
       <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0 screen-only-view">
