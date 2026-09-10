@@ -211,6 +211,22 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
               href: "/admin?view=workload",
               icon: "group",
             },
+            {
+              id: "heatmap",
+              label: "GIS Compliance Heatmap",
+              href: "/admin?view=heatmap",
+              icon: "map",
+              badge: "GIS",
+              badgeColor: "bg-emerald-600 text-white",
+            },
+            {
+              id: "network-graph",
+              label: "Fraud Ring Network Graph",
+              href: "/admin?view=network-graph",
+              icon: "hub",
+              badge: "RADAR",
+              badgeColor: "bg-purple-600 text-white",
+            },
           ],
         };
     }

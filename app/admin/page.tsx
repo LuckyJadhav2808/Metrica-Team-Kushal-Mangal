@@ -9,6 +9,8 @@ import { useMetrica } from "@/lib/store";
 import { VerificationApplication, Complaint, Instrument } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { ComplianceHeatmap } from "@/components/compliance-heatmap";
+import { FraudNetworkGraph } from "@/components/fraud-network-graph";
 
 interface CircleOfficerItem {
   id: string;
@@ -59,8 +61,8 @@ function AdminCommandCenterContent() {
   } = useMetrica();
   const toast = useToast();
 
-  // Active view tab state: DASHBOARD | ASSIGNMENTS | FLAGS | COMPLAINTS | WORKLOAD
-  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "ASSIGNMENTS" | "FLAGS" | "COMPLAINTS" | "WORKLOAD">("DASHBOARD");
+  // Active view tab state: DASHBOARD | ASSIGNMENTS | FLAGS | COMPLAINTS | WORKLOAD | HEATMAP | NETWORK_GRAPH
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "ASSIGNMENTS" | "FLAGS" | "COMPLAINTS" | "WORKLOAD" | "HEATMAP" | "NETWORK_GRAPH">("DASHBOARD");
 
   // Sync tab with URL parameters from sidebar links
   useEffect(() => {
@@ -72,6 +74,12 @@ function AdminCommandCenterContent() {
       setActiveTab("ASSIGNMENTS");
     } else if (viewParam === "workload") {
       setActiveTab("WORKLOAD");
+    } else if (viewParam === "heatmap") {
+      setActiveTab("HEATMAP");
+    } else if (viewParam === "network-graph") {
+      setActiveTab("NETWORK_GRAPH");
+    } else {
+      setActiveTab("DASHBOARD");
     }
   }, [filterParam, viewParam]);
 
@@ -325,7 +333,14 @@ function AdminCommandCenterContent() {
   return (
     <div className="bg-surface h-screen flex overflow-hidden">
       {/* Dynamic Sidebar highlighting based on activeTab */}
-      <InstitutionalNavigation activeSection={activeTab.toLowerCase()} role="ADMIN" />
+      <InstitutionalNavigation
+        activeSection={
+          activeTab === "NETWORK_GRAPH"
+            ? "network-graph"
+            : activeTab.toLowerCase()
+        }
+        role="ADMIN"
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
@@ -333,8 +348,8 @@ function AdminCommandCenterContent() {
         <InstitutionalHeader title="Administrator Command Center" />
 
         {/* Production Executive Hero Tier */}
-        <div className="px-4 lg:px-8 pt-5 pb-0 border-b border-outline-variant bg-surface shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4">
+        <div className="px-4 lg:px-8 py-5 border-b border-outline-variant bg-surface shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold tracking-wide border border-secondary/20">
@@ -345,7 +360,7 @@ function AdminCommandCenterContent() {
               <h1 className="font-display text-2xl lg:text-3xl font-bold text-on-surface tracking-tight">
                 Command Center Oversight
               </h1>
-              <p className="text-xs text-on-surface-variant mt-0.5 max-w-xl">
+              <p className="text-xs text-on-surface-variant max-w-2xl mt-1 leading-relaxed">
                 Real-time statutory verification monitoring, anomaly triage, citizen grievance redressal, and officer capacity.
               </p>
             </div>
@@ -360,80 +375,6 @@ function AdminCommandCenterContent() {
                 New Case File
               </button>
             </div>
-          </div>
-
-          {/* Dedicated Tab Navigation Bar */}
-          <div className="flex items-center gap-2 sm:gap-6 border-t border-outline-variant/60 overflow-x-auto no-scrollbar pt-1">
-            <button
-              onClick={() => setActiveTab("DASHBOARD")}
-              className={`pb-3 pt-2 text-xs font-semibold whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5 ${
-                activeTab === "DASHBOARD"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">dashboard</span>
-              Overview
-            </button>
-
-            <button
-              onClick={() => setActiveTab("ASSIGNMENTS")}
-              className={`pb-3 pt-2 text-xs font-semibold whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5 ${
-                activeTab === "ASSIGNMENTS"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">assignment_ind</span>
-              Assignment Queue
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-surface-container font-mono text-on-surface">
-                {pendingCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("FLAGS")}
-              className={`pb-3 pt-2 text-xs font-semibold whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5 ${
-                activeTab === "FLAGS"
-                  ? "border-error text-error"
-                  : "border-transparent text-on-surface-variant hover:text-error"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px] text-error">flag</span>
-              Priority Flags
-              {highRiskCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-error text-white font-mono font-bold animate-pulse">
-                  {highRiskCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab("COMPLAINTS")}
-              className={`pb-3 pt-2 text-xs font-semibold whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5 ${
-                activeTab === "COMPLAINTS"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">report_problem</span>
-              Citizen Grievances
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-surface-container font-mono text-on-surface">
-                {openComplaintsCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("WORKLOAD")}
-              className={`pb-3 pt-2 text-xs font-semibold whitespace-nowrap transition-all border-b-2 flex items-center gap-1.5 ${
-                activeTab === "WORKLOAD"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">group</span>
-              Officer Workload
-            </button>
           </div>
         </div>
 
@@ -1198,6 +1139,20 @@ function AdminCommandCenterContent() {
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 5: GIS COMPLIANCE HEATMAP (USP #23) */}
+          {activeTab === "HEATMAP" && (
+            <div className="h-full">
+              <ComplianceHeatmap />
+            </div>
+          )}
+
+          {/* TAB 6: FRAUD RING NETWORK GRAPH (RADAR) */}
+          {activeTab === "NETWORK_GRAPH" && (
+            <div className="h-full">
+              <FraudNetworkGraph />
             </div>
           )}
         </div>
