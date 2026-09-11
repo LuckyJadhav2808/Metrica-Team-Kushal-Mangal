@@ -6,10 +6,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMetrica } from "@/lib/store";
 import { Modal } from "@/components/ui/modal";
+import { useI18n } from "@/lib/i18n";
 
 export default function LandingPage() {
   const router = useRouter();
   const { instruments, complaints } = useMetrica();
+  const { language, setLanguage, fontSize, setFontSize, t } = useI18n();
 
   // Search & Navigation state
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,6 +162,86 @@ export default function LandingPage() {
         <div className="flex-1 bg-[#FF9933]" />
         <div className="flex-1 bg-white" />
         <div className="flex-1 bg-[#138808]" />
+      </div>
+
+      {/* Sovereign National Accessibility & Language Bar */}
+      <div className="bg-slate-100 border-b border-slate-200/80 text-[11px] text-slate-600 px-4 sm:px-6 lg:px-8 py-1 flex items-center justify-between font-medium">
+        <div className="flex items-center gap-2 truncate">
+          <span className="font-semibold text-[#002B5B]">भारत सरकार | Government of India</span>
+          <span className="text-slate-400">•</span>
+          <span className="hidden sm:inline">उपभोक्ता मामले विभाग | Department of Consumer Affairs</span>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Accessibility Font Size Resizer (A- | A | A+) */}
+          <div className="flex items-center gap-1 border-r border-slate-300 pr-3">
+            <button
+              type="button"
+              onClick={() => setFontSize("small")}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                fontSize === "small"
+                  ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Small Font Size (A- 90%)"
+            >
+              A-
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontSize("normal")}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                fontSize === "normal"
+                  ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Default Font Size (A 100%)"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => setFontSize("large")}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                fontSize === "large"
+                  ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Large Font Size (A+ 115%)"
+            >
+              A+
+            </button>
+          </div>
+
+          {/* Bilingual Language Switcher (English | हिन्दी) */}
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                language === "en"
+                  ? "font-bold text-[#002B5B] bg-blue-100 underline decoration-[#002B5B] decoration-2"
+                  : "text-slate-600 hover:text-slate-900 hover:underline"
+              }`}
+              title="Switch interface to English"
+            >
+              English
+            </button>
+            <span className="text-slate-400">|</span>
+            <button
+              type="button"
+              onClick={() => setLanguage("hi")}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                language === "hi"
+                  ? "font-bold text-[#002B5B] bg-blue-100 underline decoration-[#002B5B] decoration-2"
+                  : "text-slate-600 hover:text-slate-900 hover:underline"
+              }`}
+              title="मंच को हिन्दी में बदलें"
+            >
+              हिन्दी
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 2. Sovereign National Masthead */}

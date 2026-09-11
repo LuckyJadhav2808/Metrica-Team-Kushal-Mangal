@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMetrica } from "@/lib/store";
 import { UserRole } from "@/lib/types";
 import { EvaluationSandbox } from "@/components/evaluation-sandbox";
+import { useI18n } from "@/lib/i18n";
+import { useToast } from "@/components/ui/toast";
 
 interface HeaderProps {
   title?: string;
@@ -15,6 +17,8 @@ interface HeaderProps {
 export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
   const router = useRouter();
   const { currentUser, loginAs, logout, notifications, markNotificationRead, markAllNotificationsRead, instruments, applications } = useMetrica();
+  const { language, setLanguage, fontSize, setFontSize, t } = useI18n();
+  const toast = useToast();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,7 +30,6 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isPortalsOpen, setIsPortalsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [fontSize, setFontSize] = useState<"normal" | "large" | "larger">("normal");
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -141,39 +144,86 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
 
         <div className="px-4 lg:px-8 py-1 flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-primary">भारत सरकार | Government of India</span>
+            <span className="font-semibold text-primary">{t("gov.title")}</span>
             <span className="text-outline">•</span>
-            <span>उपभोक्ता मामले विभाग | Department of Consumer Affairs</span>
+            <span>{t("gov.dept")}</span>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Accessibility Font Size Resizer (A- | A | A+) */}
             <div className="flex items-center gap-1 border-r border-outline-variant pr-3">
               <button
-                onClick={() => setFontSize("normal")}
-                className={`px-1 rounded ${fontSize === "normal" ? "font-bold text-primary" : "text-outline"}`}
-                title="Default Font Size"
+                type="button"
+                onClick={() => setFontSize("small")}
+                className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  fontSize === "small"
+                    ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
+                }`}
+                title="Small Font Size (A- 90%)"
               >
                 A-
               </button>
               <button
-                onClick={() => setFontSize("large")}
-                className={`px-1 rounded ${fontSize === "large" ? "font-bold text-primary" : "text-outline"}`}
-                title="Medium Font Size"
+                type="button"
+                onClick={() => setFontSize("normal")}
+                className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  fontSize === "normal"
+                    ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
+                }`}
+                title="Default Font Size (A 100%)"
               >
                 A
               </button>
               <button
-                onClick={() => setFontSize("larger")}
-                className={`px-1 rounded ${fontSize === "larger" ? "font-bold text-primary" : "text-outline"}`}
-                title="Large Font Size"
+                type="button"
+                onClick={() => setFontSize("large")}
+                className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  fontSize === "large"
+                    ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
+                }`}
+                title="Large Font Size (A+ 115%)"
               >
                 A+
               </button>
             </div>
 
-            <span className="text-primary font-semibold cursor-pointer hover:underline">
-              English | हिन्दी
-            </span>
+            {/* Bilingual Language Selector (English | हिन्दी) */}
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage("en");
+                  toast.info("Language Switched", "Platform language set to English");
+                }}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  language === "en"
+                    ? "font-bold text-primary bg-primary/10 underline decoration-primary decoration-2"
+                    : "text-on-surface-variant hover:text-primary hover:underline"
+                }`}
+                title="Switch interface to English"
+              >
+                English
+              </button>
+              <span className="text-outline/70">|</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguage("hi");
+                  toast.info("भाषा बदली गई", "मंच की भाषा हिन्दी पर सेट की गई है");
+                }}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  language === "hi"
+                    ? "font-bold text-primary bg-primary/10 underline decoration-primary decoration-2"
+                    : "text-on-surface-variant hover:text-primary hover:underline"
+                }`}
+                title="मंच को हिन्दी में बदलें"
+              >
+                हिन्दी
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -190,7 +240,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
               title="Switch Regulatory Portal"
             >
               <span className="material-symbols-outlined text-[18px]">apps</span>
-              <span className="hidden sm:inline">Portals</span>
+              <span className="hidden sm:inline">{t("header.portals")}</span>
               <span className="material-symbols-outlined text-[14px]">expand_more</span>
             </button>
 
@@ -258,7 +308,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
                 setIsSearchOpen(true);
               }}
               onFocus={() => setIsSearchOpen(true)}
-              placeholder="Search Scale ID, Serial, or Owner..."
+              placeholder={t("header.search_placeholder")}
               className="w-full pl-9 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-all placeholder:text-outline"
             />
             <span className="absolute right-3 text-[10px] bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-outline font-mono pointer-events-none">

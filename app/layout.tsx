@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { MetricaProvider } from "@/lib/store";
 import { ToastProvider } from "@/components/ui/toast";
+import { I18nProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Metrica — Legal Metrology Regulatory Integrity Network",
@@ -29,11 +30,13 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface text-on-surface min-h-screen font-sans antialiased">
-        <MetricaProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </MetricaProvider>
+        <I18nProvider>
+          <MetricaProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </MetricaProvider>
+        </I18nProvider>
       </body>
     </html>
   );
