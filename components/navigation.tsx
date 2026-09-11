@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMetrica, GOVERNMENT_PERSONAS } from "@/lib/store";
 import { UserRole } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 interface NavItem {
   id: string;
@@ -23,6 +24,7 @@ interface NavProps {
 export function InstitutionalNavigation({ activeSection, role: propRole }: NavProps) {
   const pathname = usePathname();
   const { currentUser, instruments, applications, complaints, certificates, logout } = useMetrica();
+  const { language } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Determine effective navigation role:
@@ -171,19 +173,19 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
       case "ADMIN":
       default:
         return {
-          primaryTitle: "Statewide Portals",
+          primaryTitle: language === "hi" ? "राज्यव्यापी पोर्टल" : "Statewide Portals",
           primary: [
-            { id: "dashboard", label: "Command Center", href: "/admin", icon: "dashboard" },
-            { id: "field", label: "Field Inspections (LMO)", href: "/lmo", icon: "checklist" },
-            { id: "instruments", label: "Merchant Instruments", href: "/owner", icon: "storefront" },
-            { id: "manufacturer", label: "Manufacturer Registry", href: "/manufacturer", icon: "precision_manufacturing" },
-            { id: "qr", label: "Public Citizen Portal", href: "/qr", icon: "qr_code_scanner" },
+            { id: "dashboard", label: language === "hi" ? "कमांड सेंटर" : "Command Center", href: "/admin", icon: "dashboard" },
+            { id: "field", label: language === "hi" ? "क्षेत्रीय निरीक्षण (एलएमओ)" : "Field Inspections (LMO)", href: "/lmo", icon: "checklist" },
+            { id: "instruments", label: language === "hi" ? "व्यापारी माप उपकरण" : "Merchant Instruments", href: "/owner", icon: "storefront" },
+            { id: "manufacturer", label: language === "hi" ? "निर्माता विनिर्माण रजिस्ट्री" : "Manufacturer Registry", href: "/manufacturer", icon: "precision_manufacturing" },
+            { id: "qr", label: language === "hi" ? "सार्वजनिक नागरिक पोर्टल" : "Public Citizen Portal", href: "/qr", icon: "qr_code_scanner" },
           ],
-          secondaryTitle: "Command Oversight (Strictly Admin)",
+          secondaryTitle: language === "hi" ? "कमांड नियंत्रण (केवल प्रशासक)" : "Command Oversight (Strictly Admin)",
           secondary: [
             {
               id: "assignments",
-              label: "Assignment Queue",
+              label: language === "hi" ? "आवंटन कतार" : "Assignment Queue",
               href: "/admin?filter=PENDING",
               icon: "assignment_ind",
               badge: pendingAppsCount > 0 ? pendingAppsCount : undefined,
@@ -191,7 +193,7 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
             },
             {
               id: "flags",
-              label: "Priority Anomaly Flags",
+              label: language === "hi" ? "प्राथमिकता विसंगति चेतावनियां" : "Priority Anomaly Flags",
               href: "/admin?filter=HIGH_RISK",
               icon: "flag",
               badge: highRiskCount > 0 ? highRiskCount : undefined,
@@ -199,7 +201,7 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
             },
             {
               id: "complaints",
-              label: "Citizen Grievances",
+              label: language === "hi" ? "नागरिक शिकायतें" : "Citizen Grievances",
               href: "/admin?filter=COMPLAINTS",
               icon: "report_problem",
               badge: loggedComplaintsCount > 0 ? loggedComplaintsCount : undefined,
@@ -207,13 +209,13 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
             },
             {
               id: "workload",
-              label: "Officer Workload",
+              label: language === "hi" ? "अधिकारी कार्यभार" : "Officer Workload",
               href: "/admin?view=workload",
               icon: "group",
             },
             {
               id: "heatmap",
-              label: "GIS Compliance Heatmap",
+              label: language === "hi" ? "जीआईएस अनुपालन हीटमैप" : "GIS Compliance Heatmap",
               href: "/admin?view=heatmap",
               icon: "map",
               badge: "GIS",
@@ -221,7 +223,7 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
             },
             {
               id: "network-graph",
-              label: "Fraud Ring Network Graph",
+              label: language === "hi" ? "धोखाधड़ी नेटवर्क ग्राफ" : "Fraud Ring Network Graph",
               href: "/admin?view=network-graph",
               icon: "hub",
               badge: "RADAR",

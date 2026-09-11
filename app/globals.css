@@ -118,3 +118,55 @@ body {
     print-color-adjust: exact !important;
   }
 }
+
+/* Sovereign Clean UI Layer: Suppress third-party translation chrome, top banners, and tooltips */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+iframe.goog-te-banner-frame,
+iframe.skiptranslate,
+.goog-te-banner {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0px !important;
+  width: 0px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+font {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+#google_translate_element {
+  display: none !important;
+}
+
+/* Material icons & symbols protection against font ligature translation */
+.material-symbols-outlined,
+.material-symbols,
+.material-icons,
+[class*="material-symbols"],
+[class*="material-icons"],
+.notranslate {
+  translate: no !important;
+  -webkit-user-select: none;
+  user-select: none;
+}

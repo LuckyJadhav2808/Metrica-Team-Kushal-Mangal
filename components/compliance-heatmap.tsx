@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useMetrica } from "@/lib/store";
 import { Instrument } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 // District circles and APMC hub center coordinates in Pune, Maharashtra
 export interface MandiHubCoord {
@@ -102,6 +103,8 @@ function getCoordinatesForInstrument(inst: Instrument, index: number): [number, 
 
 export function ComplianceHeatmap() {
   const { instruments, complaints } = useMetrica();
+  const { language } = useI18n();
+  const isHi = language === "hi";
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
@@ -501,11 +504,15 @@ export function ComplianceHeatmap() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">Pune Scales</span>
+            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+              {isHi ? "पुणे माप उपकरण" : "Pune Scales"}
+            </span>
             <span className="material-symbols-outlined text-primary text-lg">pin_drop</span>
           </div>
           <p className="text-xl font-extrabold text-on-surface mt-1">{spatialStats.total}</p>
-          <span className="text-[10px] text-primary font-medium">Click to show all (16)</span>
+          <span className="text-[10px] text-primary font-medium">
+            {isHi ? `सभी (${spatialStats.total}) दिखाने के लिए क्लिक करें` : `Click to show all (${spatialStats.total})`}
+          </span>
         </button>
 
         <button
@@ -517,12 +524,16 @@ export function ComplianceHeatmap() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-error uppercase tracking-wider">Critical / Tampered</span>
+            <span className="text-[11px] font-semibold text-error uppercase tracking-wider">
+              {isHi ? "गंभीर / छेड़छाड़" : "Critical / Tampered"}
+            </span>
             <span className="material-symbols-outlined text-error text-lg animate-pulse">warning</span>
           </div>
           <p className="text-xl font-extrabold text-error mt-1">{spatialStats.critical}</p>
           <span className="text-[10px] text-error font-medium">
-            {selectedLayer === "CRITICAL" ? "✓ Filter active (2)" : "Click to filter (2)"}
+            {selectedLayer === "CRITICAL"
+              ? (isHi ? `✓ फ़िल्टर सक्रिय (${spatialStats.critical})` : `✓ Filter active (${spatialStats.critical})`)
+              : (isHi ? `फ़िल्टर करने के लिए क्लिक करें (${spatialStats.critical})` : `Click to filter (${spatialStats.critical})`)}
           </span>
         </button>
 
@@ -535,12 +546,16 @@ export function ComplianceHeatmap() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Expired Stamping</span>
+            <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
+              {isHi ? "मुहर समाप्त" : "Expired Stamping"}
+            </span>
             <span className="material-symbols-outlined text-amber-600 text-lg">event_busy</span>
           </div>
           <p className="text-xl font-extrabold text-amber-700 mt-1">{spatialStats.expired}</p>
           <span className="text-[10px] text-amber-700 font-medium">
-            {selectedLayer === "EXPIRED" ? "✓ Filter active (5)" : "Click to filter (5)"}
+            {selectedLayer === "EXPIRED"
+              ? (isHi ? `✓ फ़िल्टर सक्रिय (${spatialStats.expired})` : `✓ Filter active (${spatialStats.expired})`)
+              : (isHi ? `फ़िल्टर करने के लिए क्लिक करें (${spatialStats.expired})` : `Click to filter (${spatialStats.expired})`)}
           </span>
         </button>
 
@@ -553,12 +568,16 @@ export function ComplianceHeatmap() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">Active Grievances</span>
+            <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">
+              {isHi ? "सक्रिय शिकायतें" : "Active Grievances"}
+            </span>
             <span className="material-symbols-outlined text-rose-600 text-lg">report_problem</span>
           </div>
           <p className="text-xl font-extrabold text-rose-700 mt-1">{spatialStats.complaintsCount}</p>
           <span className="text-[10px] text-rose-700 font-medium">
-            {selectedLayer === "COMPLAINTS" ? "✓ Filter active (4)" : "Click to filter (4)"}
+            {selectedLayer === "COMPLAINTS"
+              ? (isHi ? `✓ फ़िल्टर सक्रिय (${spatialStats.complaintsCount})` : `✓ Filter active (${spatialStats.complaintsCount})`)
+              : (isHi ? `फ़िल्टर करने के लिए क्लिक करें (${spatialStats.complaintsCount})` : `Click to filter (${spatialStats.complaintsCount})`)}
           </span>
         </button>
 
@@ -571,12 +590,16 @@ export function ComplianceHeatmap() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Verified Active</span>
+            <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
+              {isHi ? "सत्यापित सक्रिय" : "Verified Active"}
+            </span>
             <span className="material-symbols-outlined text-emerald-600 text-lg">verified</span>
           </div>
           <p className="text-xl font-extrabold text-emerald-700 mt-1">{spatialStats.verifiedActive}</p>
           <span className="text-[10px] text-emerald-700 font-medium">
-            {selectedLayer === "VERIFIED" ? "✓ Filter active" : "Click to filter"}
+            {selectedLayer === "VERIFIED"
+              ? (isHi ? "✓ फ़िल्टर सक्रिय" : "✓ Filter active")
+              : (isHi ? "फ़िल्टर करने के लिए क्लिक करें" : "Click to filter")}
           </span>
         </button>
       </div>
@@ -587,19 +610,19 @@ export function ComplianceHeatmap() {
         <div className="flex items-center space-x-2">
           <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
             <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-            Pune Division:
+            {isHi ? "पुणे संभाग:" : "Pune Division:"}
           </span>
           <select
             value={selectedCircle}
             onChange={(e) => setSelectedCircle(e.target.value)}
             className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="ALL">All Pune Mandi Hubs (5 Divisions)</option>
-            <option value="KOTHRUD">Kothrud & Karve Rd (Pune West)</option>
-            <option value="BANER">Baner & Balewadi (Pune North-West)</option>
-            <option value="HADAPSAR">Hadapsar APMC Mandi (Pune East)</option>
-            <option value="AUNDH">Aundh & University Sector (Pune North)</option>
-            <option value="SINHGAD">Sinhgad Road & Dhayari (Pune South)</option>
+            <option value="ALL">{isHi ? "सभी पुणे मंडी केंद्र (5 संभाग)" : "All Pune Mandi Hubs (5 Divisions)"}</option>
+            <option value="KOTHRUD">{isHi ? "कोथरूड एवं कर्वे रोड (पुणे पश्चिम)" : "Kothrud & Karve Rd (Pune West)"}</option>
+            <option value="BANER">{isHi ? "बानेर एवं बालेवाड़ी (पुणे उत्तर-पश्चिम)" : "Baner & Balewadi (Pune North-West)"}</option>
+            <option value="HADAPSAR">{isHi ? "हडपसर एपीएमसी मंडी (पुणे पूर्व)" : "Hadapsar APMC Mandi (Pune East)"}</option>
+            <option value="AUNDH">{isHi ? "औंध एवं विश्वविद्यालय क्षेत्र (पुणे उत्तर)" : "Aundh & University Sector (Pune North)"}</option>
+            <option value="SINHGAD">{isHi ? "सिंहगढ़ रोड एवं धायरी (पुणे दक्षिण)" : "Sinhgad Road & Dhayari (Pune South)"}</option>
           </select>
         </div>
 
@@ -613,7 +636,7 @@ export function ComplianceHeatmap() {
                 activeLayerType === "CARTO" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              Voyager
+              {isHi ? "मानचित्र" : "Voyager"}
             </button>
             <button
               onClick={() => setActiveLayerType("SATELLITE_HYBRID")}
@@ -621,7 +644,7 @@ export function ComplianceHeatmap() {
                 activeLayerType === "SATELLITE_HYBRID" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              Satellite
+              {isHi ? "उपग्रह दृश्य (सैटेलाइट)" : "Satellite"}
             </button>
             <button
               onClick={() => {
@@ -635,11 +658,11 @@ export function ComplianceHeatmap() {
                 activeLayerType === "MAPBOX_REALTIME" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              <span>Mapbox Live</span>
+              <span>{isHi ? "मैपबॉक्स लाइव" : "Mapbox Live"}</span>
               {mapApiKey ? (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               ) : (
-                <span className="text-[9px] px-1 bg-amber-500/20 text-amber-700 rounded">Key</span>
+                <span className="text-[9px] px-1 bg-amber-500/20 text-amber-700 rounded">{isHi ? "कुंजी" : "Key"}</span>
               )}
             </button>
           </div>
@@ -651,7 +674,7 @@ export function ComplianceHeatmap() {
             title="Configure Real-time Map API Key (Mapbox / MapTiler)"
           >
             <span className="material-symbols-outlined text-[15px] text-primary">vpn_key</span>
-            <span>{mapApiKey ? "API Key Configured" : "Add Map API Key"}</span>
+            <span>{mapApiKey ? (isHi ? "एपीआई कुंजी कॉन्फ़िगर है" : "API Key Configured") : (isHi ? "मानचित्र एपीआई कुंजी जोड़ें" : "Add Map API Key")}</span>
           </button>
 
           {/* Real-time Radar Pulse Toggle */}
@@ -664,21 +687,21 @@ export function ComplianceHeatmap() {
             }`}
           >
             <span className={`w-2 h-2 rounded-full ${isRealTimeRadarActive ? "bg-emerald-600 animate-ping" : "bg-slate-400"}`}></span>
-            <span>{isRealTimeRadarActive ? "Live GPS Radar ON" : "Radar Paused"}</span>
+            <span>{isRealTimeRadarActive ? (isHi ? "लाइव जीपीएस रडार चालू" : "Live GPS Radar ON") : (isHi ? "रडार रुका हुआ" : "Radar Paused")}</span>
           </button>
         </div>
 
         {/* Search Box */}
         <div className="relative min-w-[200px]">
-          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-on-surface-variant">
+          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant pointer-events-none select-none z-10" translate="no">
             search
           </span>
           <input
             type="text"
-            placeholder="Search Pune ID, Shop, Kothrud..."
+            placeholder={isHi ? "आईडी, दुकान या क्षेत्र खोजें..." : "Search Pune ID, Shop, Kothrud..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs pl-8 pr-3 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full text-xs pl-8 pr-3 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary truncate"
           />
         </div>
       </div>
@@ -689,36 +712,36 @@ export function ComplianceHeatmap() {
         <div className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm relative flex flex-col">
           {/* Quick Pune Places Jump Buttons Floating Bar */}
           <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1 flex-wrap gap-y-1">
-            <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">Pune Places:</span>
+            <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">{isHi ? "पुणे क्षेत्र:" : "Pune Places:"}</span>
             <button
               onClick={() => handleFocusMandi("KOTHRUD")}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
             >
-              Kothrud
+              {isHi ? "कोथरूड" : "Kothrud"}
             </button>
             <button
               onClick={() => handleFocusMandi("BANER")}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
             >
-              Baner
+              {isHi ? "बानेर" : "Baner"}
             </button>
             <button
               onClick={() => handleFocusMandi("HADAPSAR")}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
             >
-              Hadapsar
+              {isHi ? "हडपसर" : "Hadapsar"}
             </button>
             <button
               onClick={() => handleFocusMandi("AUNDH")}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
             >
-              Aundh
+              {isHi ? "औंध" : "Aundh"}
             </button>
             <button
               onClick={() => handleFocusMandi("SINHGAD")}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
             >
-              Sinhgad
+              {isHi ? "सिंहगढ़" : "Sinhgad"}
             </button>
             <button
               onClick={handleResetView}
@@ -741,22 +764,22 @@ export function ComplianceHeatmap() {
 
           {/* Map Legend Overlay */}
           <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-2.5 shadow-md text-xs space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Compliance Key (Pune)</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{isHi ? "अनुपालन कुंजी (पुणे)" : "Compliance Key (Pune)"}</span>
             <div className="flex items-center space-x-2">
               <span className="w-3 h-3 rounded-full bg-red-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Critical / Tampered / Raid</span>
+              <span className="text-slate-700 font-medium">{isHi ? "अतिसंवेदनशील / छेड़छाड़ / छापा" : "Critical / Tampered / Raid"}</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Expired Stamping Overdue</span>
+              <span className="text-slate-700 font-medium">{isHi ? "मुहर वैधता समाप्त" : "Expired Stamping Overdue"}</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-3 h-3 rounded-full bg-amber-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Attention Required (30 Days)</span>
+              <span className="text-slate-700 font-medium">{isHi ? "कार्रवाई आवश्यक (30 दिन शेष)" : "Attention Required (30 Days)"}</span>
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-3 h-3 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Form-A Verified Active</span>
+              <span className="text-slate-700 font-medium">{isHi ? "प्रपत्र-क सत्यापित सक्रिय" : "Form-A Verified Active"}</span>
             </div>
           </div>
         </div>
@@ -767,12 +790,12 @@ export function ComplianceHeatmap() {
             <div>
               <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm text-primary">analytics</span>
-                <span>Pune Mandi Docket</span>
+                <span>{isHi ? "पुणे मंडी डॉकेट" : "Pune Mandi Docket"}</span>
               </h3>
-              <p className="text-[11px] text-on-surface-variant">Showing {filteredInstruments.length} geocoded scales</p>
+              <p className="text-[11px] text-on-surface-variant">{isHi ? `${filteredInstruments.length} भू-स्थानिक तराजू प्रदर्शित` : `Showing ${filteredInstruments.length} geocoded scales`}</p>
             </div>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface-container text-on-surface-variant border border-outline-variant/30">
-              Live Pune Sync
+              {isHi ? "लाइव पुणे समन्वय" : "Live Pune Sync"}
             </span>
           </div>
 
@@ -788,30 +811,32 @@ export function ComplianceHeatmap() {
                     ? "bg-amber-500/20 text-amber-700"
                     : "bg-emerald-500/20 text-emerald-700"
                 }`}>
-                  {selectedInstrument.status}
+                  {isHi
+                    ? (selectedInstrument.priorityFlag === "CRITICAL" ? "अतिसंवेदनशील" : selectedInstrument.status === "EXPIRED" ? "समाप्त" : "सत्यापित सक्रिय")
+                    : selectedInstrument.status}
                 </span>
               </div>
-              <p className="text-xs font-bold text-on-surface">{selectedInstrument.ownerName || "Merchant Unknown"}</p>
+              <p className="text-xs font-bold text-on-surface">{selectedInstrument.ownerName || (isHi ? "व्यापारी प्रतिष्ठान" : "Merchant Unknown")}</p>
               <p className="text-[11px] text-on-surface-variant leading-snug">{selectedInstrument.ownerAddress}</p>
               
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-outline-variant/20 text-[11px]">
                 <div>
-                  <span className="text-on-surface-variant/70 text-[10px] block">Model</span>
+                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "मॉडल" : "Model"}</span>
                   <span className="font-semibold text-on-surface">{selectedInstrument.modelName}</span>
                 </div>
                 <div>
-                  <span className="text-on-surface-variant/70 text-[10px] block">Serial No</span>
+                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "क्रमांक" : "Serial No"}</span>
                   <span className="font-semibold text-on-surface">{selectedInstrument.serialNumber}</span>
                 </div>
                 <div>
-                  <span className="text-on-surface-variant/70 text-[10px] block">Risk Index</span>
+                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "जोखिम सूचकांक" : "Risk Index"}</span>
                   <span className={`font-extrabold ${selectedInstrument.riskScore >= 70 ? "text-error" : "text-emerald-700"}`}>
                     {selectedInstrument.riskScore}/100
                   </span>
                 </div>
                 <div>
-                  <span className="text-on-surface-variant/70 text-[10px] block">Valid Until</span>
-                  <span className="font-semibold text-on-surface">{selectedInstrument.validUntil || "Not Set"}</span>
+                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "वैधता तिथि" : "Valid Until"}</span>
+                  <span className="font-semibold text-on-surface">{selectedInstrument.validUntil || (isHi ? "अनिर्धारित" : "Not Set")}</span>
                 </div>
               </div>
 
@@ -821,13 +846,13 @@ export function ComplianceHeatmap() {
                   target="_blank"
                   className="flex-1 text-center py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold transition-colors"
                 >
-                  View Public QR
+                  {isHi ? "सार्वजनिक क्यूआर देखें" : "View Public QR"}
                 </a>
                 <button
                   onClick={() => setSelectedInstrument(null)}
-                  className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface-variant"
+                  className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface-variant cursor-pointer"
                 >
-                  Close
+                  {isHi ? "बंद करें" : "Close"}
                 </button>
               </div>
             </div>
@@ -838,7 +863,7 @@ export function ComplianceHeatmap() {
             {filteredInstruments.length === 0 ? (
               <div className="text-center py-8 text-xs text-on-surface-variant">
                 <span className="material-symbols-outlined text-2xl text-on-surface-variant/50 mb-1 block">filter_alt_off</span>
-                No scales match the active spatial filters.
+                {isHi ? "सक्रिय स्थानिक फ़िल्टर से कोई माप उपकरण मेल नहीं खाता।" : "No scales match the active spatial filters."}
               </div>
             ) : (
               filteredInstruments.map((inst) => {
@@ -863,17 +888,17 @@ export function ComplianceHeatmap() {
                       <div className="flex items-center gap-1.5">
                         {isCrit && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-error/15 text-error">
-                            CRITICAL
+                            {isHi ? "अतिसंवेदनशील" : "CRITICAL"}
                           </span>
                         )}
                         {isExp && !isCrit && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700">
-                            EXPIRED
+                            {isHi ? "समाप्त" : "EXPIRED"}
                           </span>
                         )}
                         {instComplaints.length > 0 && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-700">
-                            {instComplaints.length} Grievance{instComplaints.length > 1 ? "s" : ""}
+                            {instComplaints.length} {isHi ? "शिकायतें" : (instComplaints.length > 1 ? "Grievances" : "Grievance")}
                           </span>
                         )}
                         <span className={`w-2 h-2 rounded-full ${isCrit ? "bg-red-600 animate-pulse" : isExp ? "bg-orange-500" : "bg-emerald-600"}`}></span>

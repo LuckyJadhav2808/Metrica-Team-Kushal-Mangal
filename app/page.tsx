@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n";
 export default function LandingPage() {
   const router = useRouter();
   const { instruments, complaints } = useMetrica();
-  const { language, setLanguage, fontSize, setFontSize, t } = useI18n();
+  const { language, setLanguage, fontScale, zoomIn, zoomOut, zoomReset, t } = useI18n();
 
   // Search & Navigation state
   const [searchQuery, setSearchQuery] = useState("");
@@ -177,37 +177,39 @@ export default function LandingPage() {
           <div className="flex items-center gap-1 border-r border-slate-300 pr-3">
             <button
               type="button"
-              onClick={() => setFontSize("small")}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                fontSize === "small"
+              onClick={zoomOut}
+              disabled={fontScale <= 70}
+              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                fontScale < 100
                   ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
-              title="Small Font Size (A- 90%)"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title={`Zoom Out / Reduce Font Size (Current: ${fontScale}%)`}
             >
               A-
             </button>
             <button
               type="button"
-              onClick={() => setFontSize("normal")}
+              onClick={zoomReset}
               className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                fontSize === "normal"
+                fontScale === 100
                   ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="Default Font Size (A 100%)"
+              title={`Reset Font Size (Current: ${fontScale}%)`}
             >
-              A
+              A {fontScale !== 100 && <span className="text-[9px] font-mono">({fontScale}%)</span>}
             </button>
             <button
               type="button"
-              onClick={() => setFontSize("large")}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                fontSize === "large"
+              onClick={zoomIn}
+              disabled={fontScale >= 160}
+              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                fontScale > 100
                   ? "font-extrabold text-[#002B5B] bg-blue-100 ring-1 ring-blue-300"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
-              title="Large Font Size (A+ 115%)"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title={`Zoom In / Enlarge Font Size (Current: ${fontScale}%)`}
             >
               A+
             </button>

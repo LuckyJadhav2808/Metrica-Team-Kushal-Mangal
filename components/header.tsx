@@ -17,7 +17,7 @@ interface HeaderProps {
 export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
   const router = useRouter();
   const { currentUser, loginAs, logout, notifications, markNotificationRead, markAllNotificationsRead, instruments, applications } = useMetrica();
-  const { language, setLanguage, fontSize, setFontSize, t } = useI18n();
+  const { language, setLanguage, fontScale, zoomIn, zoomOut, zoomReset, t } = useI18n();
   const toast = useToast();
 
   // Search state
@@ -144,47 +144,41 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
 
         <div className="px-4 lg:px-8 py-1 flex items-center justify-between text-[11px] text-on-surface-variant font-medium">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-primary">{t("gov.title")}</span>
+            <span className="font-semibold text-primary">{language === "hi" ? "भारत सरकार" : "भारत सरकार | Government of India"}</span>
             <span className="text-outline">•</span>
-            <span>{t("gov.dept")}</span>
+            <span>{language === "hi" ? "उपभोक्ता मामले विभाग" : "उपभोक्ता मामले विभाग | Department of Consumer Affairs"}</span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Accessibility Font Size Resizer (A- | A | A+) */}
+            {/* Accessibility Font Size Resizer (A- | A | A+) with Continuous Multi-step Zoom */}
             <div className="flex items-center gap-1 border-r border-outline-variant pr-3">
               <button
                 type="button"
-                onClick={() => setFontSize("small")}
-                className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                  fontSize === "small"
-                    ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
-                }`}
-                title="Small Font Size (A- 90%)"
+                onClick={zoomOut}
+                disabled={fontScale <= 70}
+                className="px-1.5 py-0.5 rounded text-[11px] font-bold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all cursor-pointer disabled:opacity-35"
+                title="Decrease Text Size (A-)"
               >
                 A-
               </button>
               <button
                 type="button"
-                onClick={() => setFontSize("normal")}
+                onClick={zoomReset}
                 className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                  fontSize === "normal"
+                  fontScale === 100
                     ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container font-semibold"
                 }`}
-                title="Default Font Size (A 100%)"
+                title="Reset Standard Font Size (A 100%)"
               >
-                A
+                A {fontScale !== 100 ? `(${fontScale}%)` : ""}
               </button>
               <button
                 type="button"
-                onClick={() => setFontSize("large")}
-                className={`px-1.5 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
-                  fontSize === "large"
-                    ? "font-extrabold text-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container"
-                }`}
-                title="Large Font Size (A+ 115%)"
+                onClick={zoomIn}
+                disabled={fontScale >= 160}
+                className="px-1.5 py-0.5 rounded text-[11px] font-bold text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all cursor-pointer disabled:opacity-35"
+                title="Increase Text Size (A+)"
               >
                 A+
               </button>
@@ -240,7 +234,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
               title="Switch Regulatory Portal"
             >
               <span className="material-symbols-outlined text-[18px]">apps</span>
-              <span className="hidden sm:inline">{t("header.portals")}</span>
+              <span className="hidden sm:inline">{language === "hi" ? "विनियामक पोर्टल" : "Portals"}</span>
               <span className="material-symbols-outlined text-[14px]">expand_more</span>
             </button>
 
@@ -297,7 +291,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
         {/* Center: Universal Search */}
         <div className="relative flex-1 min-w-0 max-w-xs mx-2 lg:mx-3 hidden md:block" ref={searchRef}>
           <div className="relative flex items-center">
-            <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
+            <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none select-none z-10" translate="no">
               search
             </span>
             <input
@@ -308,8 +302,8 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
                 setIsSearchOpen(true);
               }}
               onFocus={() => setIsSearchOpen(true)}
-              placeholder={t("header.search_placeholder")}
-              className="w-full pl-9 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-all placeholder:text-outline"
+              placeholder={language === "hi" ? "आईडी, क्रमांक या व्यापारी खोजें..." : "Search scale ID, serial, merchant..."}
+              className="w-full pl-9 pr-10 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-all placeholder:text-outline truncate"
             />
             <span className="absolute right-3 text-[10px] bg-surface border border-outline-variant rounded px-1.5 py-0.5 text-outline font-mono pointer-events-none">
               /

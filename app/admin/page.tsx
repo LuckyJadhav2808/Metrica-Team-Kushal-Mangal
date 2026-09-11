@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { ComplianceHeatmap } from "@/components/compliance-heatmap";
 import { FraudNetworkGraph } from "@/components/fraud-network-graph";
+import { useI18n } from "@/lib/i18n";
 
 interface CircleOfficerItem {
   id: string;
@@ -59,6 +60,8 @@ function AdminCommandCenterContent() {
     dispatchRaidForComplaint,
     updateInstrumentFlag,
   } = useMetrica();
+  const { language } = useI18n();
+  const isHi = language === "hi";
   const toast = useToast();
 
   // Active view tab state: DASHBOARD | ASSIGNMENTS | FLAGS | COMPLAINTS | WORKLOAD | HEATMAP | NETWORK_GRAPH
@@ -345,7 +348,7 @@ function AdminCommandCenterContent() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
         {/* Universal Top Header */}
-        <InstitutionalHeader title="Administrator Command Center" />
+        <InstitutionalHeader title={isHi ? "प्रशासक नियंत्रण कक्ष" : "Administrator Command Center"} />
 
         {/* Production Executive Hero Tier */}
         <div className="px-4 lg:px-8 py-5 border-b border-outline-variant bg-surface shrink-0">
@@ -354,14 +357,14 @@ function AdminCommandCenterContent() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-semibold tracking-wide border border-secondary/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-                  National Regulatory Oversight Active • Central Directorate
+                  {isHi ? "राष्ट्रीय विनियामक निगरानी सक्रिय • केंद्रीय निदेशालय" : "National Regulatory Oversight Active • Central Directorate"}
                 </span>
               </div>
               <h1 className="font-display text-2xl lg:text-3xl font-bold text-on-surface tracking-tight">
-                Command Center Oversight
+                {isHi ? "कमांड सेंटर निरीक्षण एवं विनियामक निगरानी" : "Command Center Oversight"}
               </h1>
               <p className="text-xs text-on-surface-variant max-w-2xl mt-1 leading-relaxed">
-                Real-time statutory verification monitoring, anomaly triage, citizen grievance redressal, and officer capacity.
+                {isHi ? "वास्तविक समय विधिक सत्यापन निगरानी, विसंगति निवारण, नागरिक शिकायत निवारण एवं अधिकारी क्षमता प्रबंधन।" : "Real-time statutory verification monitoring, anomaly triage, citizen grievance redressal, and officer capacity."}
               </p>
             </div>
 
@@ -369,10 +372,10 @@ function AdminCommandCenterContent() {
             <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={() => setIsNewCaseOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-container transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-container transition-all shadow-sm active:scale-95 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
-                New Case File
+                {isHi ? "+ नया मामला दर्ज करें" : "New Case File"}
               </button>
             </div>
           </div>
