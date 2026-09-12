@@ -2,127 +2,98 @@
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useMetrica } from "@/lib/store";
-import { Instrument, Complaint } from "@/lib/types";
-
-// District circles and APMC hub center coordinates in Delhi NCR
-interface MandiHubCoord {
-  name: string;
-  circle: string;
-  lat: number;
-  lng: number;
-  pincode: string;
-  description: string;
-}
-
-const MANDI_HUBS: Record<string, MandiHubCoord> = {
-  AZADPUR: {
-    name: "Azadpur APMC Fruit & Vegetable Mandi",
-    circle: "Delhi North District Circle",
-    lat: 28.7130,
-    lng: 77.1770,
-    pincode: "110033",
-    description: "Asia's largest wholesale produce market (High density of commercial scales)",
-  },
-  CHANDNI_CHOWK: {
-    name: "Chandni Chowk & Daryaganj Trade Hub",
-    circle: "Delhi Central District Circle",
-    lat: 28.6507,
-    lng: 77.2334,
-    pincode: "110006",
-    description: "Gold, jewelry, spices, and legacy dry fruit commercial establishments",
-  },
-  GHAZIPUR: {
-    name: "Ghazipur Wholesale Mandi & Mayur Vihar",
-    circle: "Delhi East District Circle",
-    lat: 28.6258,
-    lng: 77.3275,
-    pincode: "110096",
-    description: "Dairy, livestock, poultry, and eastern perimeter weighbridges",
-  },
-  OKHLA: {
-    name: "Okhla Industrial & APMC Grain Hub",
-    circle: "Delhi South District Circle",
-    lat: 28.5355,
-    lng: 77.2732,
-    pincode: "110020",
-    description: "Grain wholesale traders, vehicle weighbridges, cold storage scales",
-  },
-  NAJAFGARH: {
-    name: "Najafgarh Grain Mandi & Punjabi Bagh Hub",
-    circle: "Delhi West District Circle",
-    lat: 28.6127,
-    lng: 76.9855,
-    pincode: "110043",
-    description: "Western agrarian trade node, bulk agricultural scales, platform weighers",
-  },
-};
-
-// Offset generator to place individual instruments within their Mandi hub radius
-function getCoordinatesForInstrument(inst: Instrument, index: number): [number, number] {
-  let base = MANDI_HUBS.AZADPUR;
-  const circle = (inst.jurisdictionCircle || "").toLowerCase();
-  const address = (inst.ownerAddress || "").toLowerCase();
-  const pin = inst.pincode || "";
-
-  if (circle.includes("east") || pin === "110096" || pin === "110092" || address.includes("ghazipur")) {
-    base = MANDI_HUBS.GHAZIPUR;
-  } else if (circle.includes("central") || pin === "110006" || address.includes("chandni") || address.includes("daryaganj")) {
-    base = MANDI_HUBS.CHANDNI_CHOWK;
-  } else if (circle.includes("south") || pin === "110020" || pin === "110019" || address.includes("okhla")) {
-    base = MANDI_HUBS.OKHLA;
-  } else if (circle.includes("west") || pin === "110043" || pin === "110026" || address.includes("najafgarh")) {
-    base = MANDI_HUBS.NAJAFGARH;
-  }
-
-  // Jitter slightly based on index so pins don't overlap exactly
-  const angle = (index * 137.5 * Math.PI) / 180; // Golden angle dispersion
-  const radius = 0.003 + (index % 5) * 0.0018; // ~300 to 900 meters radius
-  const lat = base.lat + radius * Math.cos(angle);
-  const lng = base.lng + (radius * Math.sin(angle)) * 1.1; // adjust for longitude aspect ratio
-
-  return [lat, lng];
-}
+import { Instrument } from "@/lib/types";
+import {
+  INDIAN_CITIES,
+  CityId,
+  MandiHub,
+  getCityForInstrument,
+  getCoordinatesForInstrument,
+  getAllMandiHubs,
+} from "@/lib/geo-config";
 
 export function ComplianceHeatmap() {
   const { instruments, complaints } = useMetrica();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersLayerRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null);
 
   // Filter states
+  const [selectedCity, setSelectedCity] = useState<CityId>("DELHI");
   const [selectedCircle, setSelectedCircle] = useState<string>("ALL");
   const [selectedLayer, setSelectedLayer] = useState<"ALL" | "CRITICAL" | "EXPIRED" | "COMPLAINTS" | "VERIFIED">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null);
   const [isLeafletReady, setIsLeafletReady] = useState(false);
+  const [baseMapStyle, setBaseMapStyle] = useState<"osm" | "esri_gray" | "esri_street">("osm");
 
-  // Compute spatial statistics
+  // Active Mandi Hubs based on selected city
+  const activeHubs: MandiHub[] = useMemo(() => {
+    if (selectedCity === "ALL_INDIA") {
+      return getAllMandiHubs();
+    }
+    return INDIAN_CITIES[selectedCity]?.hubs || [];
+  }, [selectedCity]);
+
+  // Filter instruments by active City first
+  const cityInstruments = useMemo(() => {
+    if (selectedCity === "ALL_INDIA") {
+      return instruments;
+    }
+    return instruments.filter((inst) => getCityForInstrument(inst) === selectedCity);
+  }, [instruments, selectedCity]);
+
+  const cityComplaints = useMemo(() => {
+    if (selectedCity === "ALL_INDIA") {
+      return complaints;
+    }
+    const cityInstIds = new Set(cityInstruments.map((i) => i.id));
+    const cityInstDigitalIds = new Set(cityInstruments.map((i) => i.digitalInstrumentId));
+    return complaints.filter(
+      (c) =>
+        (c.instrumentId && cityInstIds.has(c.instrumentId)) ||
+        (c.digitalInstrumentId && cityInstDigitalIds.has(c.digitalInstrumentId))
+    );
+  }, [complaints, cityInstruments, selectedCity]);
+
+  // Compute spatial statistics for active view
   const spatialStats = useMemo(() => {
-    const total = instruments.length;
-    const critical = instruments.filter(
+    const total = cityInstruments.length;
+    const critical = cityInstruments.filter(
       (i) => i.priorityFlag === "CRITICAL" || i.status === "SUSPENDED_TAMPERED" || i.riskScore >= 75
     ).length;
-    const expired = instruments.filter(
+    const expired = cityInstruments.filter(
       (i) => i.status === "EXPIRED" || (i.validUntil && new Date(i.validUntil) < new Date())
     ).length;
-    const complaintsCount = complaints.filter(
+    const complaintsCount = cityComplaints.filter(
       (c) => c.status === "LOGGED" || c.status === "UNDER_INVESTIGATION"
     ).length;
-    const verifiedActive = instruments.filter((i) => i.status === "VERIFIED_ACTIVE").length;
+    const verifiedActive = cityInstruments.filter((i) => i.status === "VERIFIED_ACTIVE").length;
     return { total, critical, expired, complaintsCount, verifiedActive };
-  }, [instruments, complaints]);
+  }, [cityInstruments, cityComplaints]);
 
-  // Filter instruments based on user selection
+  // Filter instruments based on user selection (Circle, Layer, Search)
   const filteredInstruments = useMemo(() => {
-    return instruments.filter((inst) => {
-      // 1. Circle filter
+    return cityInstruments.filter((inst) => {
+      // 1. Circle / Mandi filter
       if (selectedCircle !== "ALL") {
         const circleKey = selectedCircle.toLowerCase();
-        if (circleKey === "north" && !inst.jurisdictionCircle.toLowerCase().includes("north")) return false;
-        if (circleKey === "central" && !inst.jurisdictionCircle.toLowerCase().includes("central")) return false;
-        if (circleKey === "east" && !inst.jurisdictionCircle.toLowerCase().includes("east")) return false;
-        if (circleKey === "south" && !inst.jurisdictionCircle.toLowerCase().includes("south")) return false;
-        if (circleKey === "west" && !inst.jurisdictionCircle.toLowerCase().includes("west")) return false;
+        const instCircle = (inst.jurisdictionCircle || "").toLowerCase();
+        const instAddress = (inst.ownerAddress || "").toLowerCase();
+        const instPin = (inst.pincode || "").trim();
+
+        const matchedHub = activeHubs.find((h) => h.id === selectedCircle);
+        if (matchedHub) {
+          const matchesHub =
+            instCircle.includes(matchedHub.shortName.toLowerCase()) ||
+            instCircle.includes(matchedHub.circle.toLowerCase()) ||
+            instAddress.includes(matchedHub.shortName.toLowerCase()) ||
+            instPin === matchedHub.pincode;
+          if (!matchesHub) return false;
+        } else {
+          if (!instCircle.includes(circleKey)) return false;
+        }
       }
 
       // 2. Layer filter
@@ -134,7 +105,7 @@ export function ComplianceHeatmap() {
       } else if (selectedLayer === "VERIFIED") {
         if (inst.status !== "VERIFIED_ACTIVE") return false;
       } else if (selectedLayer === "COMPLAINTS") {
-        const hasComplaint = complaints.some(
+        const hasComplaint = cityComplaints.some(
           (c) => c.digitalInstrumentId === inst.digitalInstrumentId || c.instrumentId === inst.id
         );
         if (!hasComplaint) return false;
@@ -152,7 +123,45 @@ export function ComplianceHeatmap() {
 
       return true;
     });
-  }, [instruments, complaints, selectedCircle, selectedLayer, searchQuery]);
+  }, [cityInstruments, cityComplaints, selectedCircle, selectedLayer, searchQuery, activeHubs]);
+
+  // Dynamic Tile Layer Switcher
+  useEffect(() => {
+    if (!isLeafletReady || !mapInstanceRef.current || !tileLayerRef.current) return;
+    let isMounted = true;
+
+    async function changeTileLayer() {
+      const L = await import("leaflet");
+      if (!isMounted || !mapInstanceRef.current || !tileLayerRef.current) return;
+
+      try {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current);
+
+        let tileUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+        let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+        if (baseMapStyle === "esri_gray") {
+          tileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+          attribution = 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ';
+        } else if (baseMapStyle === "esri_street") {
+          tileUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+          attribution = 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS';
+        }
+
+        const newTileLayer = L.tileLayer(tileUrl, { attribution, maxZoom: 19 });
+        newTileLayer.addTo(mapInstanceRef.current);
+        tileLayerRef.current = newTileLayer;
+      } catch (err) {
+        console.warn("Tile layer transition notice:", err);
+      }
+    }
+
+    changeTileLayer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [baseMapStyle, isLeafletReady]);
 
   // Load Leaflet dynamically on the client
   useEffect(() => {
@@ -175,23 +184,25 @@ export function ComplianceHeatmap() {
       if (!isMounted) return;
 
       if (!mapInstanceRef.current && mapContainerRef.current) {
-        // Initialize Map centered on Delhi NCR (28.6300, 77.1800)
+        const defaultCity = INDIAN_CITIES.DELHI;
         const map = L.map(mapContainerRef.current, {
-          center: [28.6350, 77.1850],
-          zoom: 11,
+          center: defaultCity.center,
+          zoom: defaultCity.zoom,
           zoomControl: false,
         });
 
         // Add custom Zoom control at top-right
         L.control.zoom({ position: "topright" }).addTo(map);
 
-        // CartoDB Voyager Tile Layer (clean, high-legibility institutional styling)
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        // OpenStreetMap Standard Tiles (100% Free, Zero Key Required, Open-Source)
+        const initialTileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           maxZoom: 19,
         }).addTo(map);
 
-        // Group layer for markers
+        tileLayerRef.current = initialTileLayer;
+
+        // Group layer for markers & circles
         const markersLayer = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
         markersLayerRef.current = markersLayer;
@@ -210,7 +221,7 @@ export function ComplianceHeatmap() {
     };
   }, []);
 
-  // Update map markers whenever filteredInstruments changes or Leaflet becomes ready
+  // Update map markers whenever filteredInstruments changes or city changes
   useEffect(() => {
     if (!isLeafletReady || !mapInstanceRef.current || !markersLayerRef.current) return;
 
@@ -223,10 +234,10 @@ export function ComplianceHeatmap() {
       const markersLayer = markersLayerRef.current;
       markersLayer.clearLayers();
 
-      // 1. Add Mandi Regional Hub Perimeter Circles
-      Object.values(MANDI_HUBS).forEach((hub) => {
+      // 1. Add Mandi Regional Hub Perimeter Circles for active view
+      activeHubs.forEach((hub) => {
         const hubCircle = L.circle([hub.lat, hub.lng], {
-          radius: 1200,
+          radius: hub.radiusMeters || 1600,
           color: "#1a4d8f",
           weight: 1.5,
           dashArray: "4, 6",
@@ -276,65 +287,100 @@ export function ComplianceHeatmap() {
           html: `
             <div style="position: relative; width: 28px; height: 28px;">
               ${
-                isCritical
-                  ? `<div style="position: absolute; inset: -4px; border-radius: 9999px; background: rgba(220, 38, 38, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>`
+                pulseClass
+                  ? `<span class="marker-radar-ping" style="background-color: ${markerColor};"></span>`
                   : ""
               }
               <div style="
                 width: 28px;
                 height: 28px;
-                border-radius: 9999px;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
                 background: ${markerColor};
-                border: 2.5px solid #ffffff;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25);
+                border: 2px solid #ffffff;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.35);
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: 700;
               ">
-                ${isCritical ? "!" : isExpired ? "✕" : "✓"}
+                <span style="
+                  transform: rotate(45deg);
+                  color: #ffffff;
+                  font-size: 13px;
+                  font-weight: 800;
+                  font-family: monospace;
+                ">
+                  ${isCritical ? "!" : isExpired ? "X" : "✓"}
+                </span>
               </div>
             </div>
           `,
           iconSize: [28, 28],
-          iconAnchor: [14, 14],
-          popupAnchor: [0, -14],
+          iconAnchor: [14, 28],
+          popupAnchor: [0, -28],
         });
 
         const marker = L.marker([lat, lng], { icon: customIcon });
 
-        // Build rich interactive popup
+        // Rich statutory popup
         const popupContent = `
-          <div style="font-family: inherit; width: 240px; padding: 4px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
-              <span style="font-weight: 800; font-size: 12px; color: #00366f; letter-spacing: 0.5px;">${inst.digitalInstrumentId}</span>
-              <span style="font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${
-                isCritical ? "#fee2e2; color: #b91c1c;" : isExpired ? "#ffedd5; color: #c2410c;" : "#dcfce7; color: #15803d;"
-              }">${statusText}</span>
+          <div style="font-family: inherit; min-width: 220px; padding: 2px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+              <span style="font-size: 10px; font-weight: 700; color: ${markerColor}; text-transform: uppercase;">
+                ${statusText}
+              </span>
+              <span style="font-size: 10px; color: #64748b; font-family: monospace;">
+                ${inst.accuracyClass}
+              </span>
             </div>
-            <div style="font-size: 11px; color: #1e293b; margin-bottom: 4px;">
-              <b>Establishment:</b> ${inst.ownerName || "Unassigned"}
+
+            <h4 style="margin: 0 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a;">
+              ${inst.digitalInstrumentId}
+            </h4>
+
+            <p style="margin: 0 0 6px 0; font-size: 11px; color: #334155; font-weight: 500;">
+              ${inst.ownerName || "Commercial Establishment"}
+            </p>
+
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 8px; line-height: 1.4;">
+              <b>Address:</b> ${inst.ownerAddress || "N/A"}<br/>
+              <b>Circle:</b> ${inst.jurisdictionCircle}<br/>
+              <b>Capacity:</b> ${inst.maxCapacity} ${inst.nominalUnit} (e=${inst.verificationInterval})
             </div>
-            <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.3;">
-              <b>Location:</b> ${inst.ownerAddress || inst.jurisdictionCircle}
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #f8fafc; padding: 6px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">
-              <div>
-                <span style="color: #64748b; display: block;">Risk Index</span>
-                <b style="font-size: 12px; color: ${inst.riskScore >= 70 ? "#dc2626" : inst.riskScore >= 40 ? "#d97706" : "#16a34a"};">${inst.riskScore}/100</b>
-              </div>
-              <div>
-                <span style="color: #64748b; display: block;">Trust Score</span>
-                <b style="font-size: 12px; color: #0284c7;">${inst.trustScore}%</b>
-              </div>
-            </div>
-            <div style="display: flex; gap: 6px;">
-              <a href="/qr/${encodeURIComponent(inst.digitalInstrumentId)}" target="_blank" style="flex: 1; text-align: center; background: #00366f; color: #ffffff; text-decoration: none; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">
-                Inspect QR
+
+            <div style="display: flex; gap: 4px;">
+              <a 
+                href="/qr/${encodeURIComponent(inst.digitalInstrumentId)}" 
+                target="_blank"
+                style="
+                  flex: 1;
+                  text-align: center;
+                  background-color: #00366f;
+                  color: #ffffff;
+                  font-size: 10px;
+                  font-weight: 600;
+                  padding: 4px 6px;
+                  border-radius: 4px;
+                  text-decoration: none;
+                "
+              >
+                Scan Certificate
               </a>
-              <a href="/admin?filter=HIGH_RISK" style="flex: 1; text-align: center; background: #e2e8f0; color: #1e293b; text-decoration: none; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">
+              <a 
+                href="/admin" 
+                style="
+                  flex: 1;
+                  text-align: center;
+                  background-color: #f1f5f9;
+                  color: #334155;
+                  font-size: 10px;
+                  font-weight: 600;
+                  padding: 4px 6px;
+                  border-radius: 4px;
+                  text-decoration: none;
+                  border: 1px solid #cbd5e1;
+                "
+              >
                 Audit Docket
               </a>
             </div>
@@ -356,18 +402,28 @@ export function ComplianceHeatmap() {
     return () => {
       isMounted = false;
     };
-  }, [filteredInstruments, isLeafletReady]);
+  }, [filteredInstruments, activeHubs, isLeafletReady]);
+
+  // Handle City Change (fly to coordinates & reset circle)
+  const handleCityChange = (cityId: CityId) => {
+    setSelectedCity(cityId);
+    setSelectedCircle("ALL");
+    const city = INDIAN_CITIES[cityId];
+    if (city && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(city.center, city.zoom, { duration: 1.4 });
+    }
+  };
 
   // Center map on a specific Mandi hub
-  const handleFocusMandi = (mandiKey: keyof typeof MANDI_HUBS) => {
+  const handleFocusMandi = (hub: MandiHub) => {
     if (!mapInstanceRef.current) return;
-    const hub = MANDI_HUBS[mandiKey];
     mapInstanceRef.current.flyTo([hub.lat, hub.lng], 14, { duration: 1.2 });
   };
 
   const handleResetView = () => {
     if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.flyTo([28.6350, 77.1850], 11, { duration: 1.0 });
+    const currentCity = INDIAN_CITIES[selectedCity] || INDIAN_CITIES.DELHI;
+    mapInstanceRef.current.flyTo(currentCity.center, currentCity.zoom, { duration: 1.0 });
   };
 
   return (
@@ -387,7 +443,7 @@ export function ComplianceHeatmap() {
             <span className="material-symbols-outlined text-primary text-lg">pin_drop</span>
           </div>
           <p className="text-xl font-extrabold text-on-surface mt-1">{spatialStats.total}</p>
-          <span className="text-[10px] text-primary font-medium">Click to show all (16)</span>
+          <span className="text-[10px] text-primary font-medium">Click to show all ({spatialStats.total})</span>
         </button>
 
         <button
@@ -404,7 +460,7 @@ export function ComplianceHeatmap() {
           </div>
           <p className="text-xl font-extrabold text-error mt-1">{spatialStats.critical}</p>
           <span className="text-[10px] text-error font-medium">
-            {selectedLayer === "CRITICAL" ? "✓ Filter active (2)" : "Click to filter (2)"}
+            {selectedLayer === "CRITICAL" ? `✓ Filter active (${spatialStats.critical})` : `Click to filter (${spatialStats.critical})`}
           </span>
         </button>
 
@@ -422,7 +478,7 @@ export function ComplianceHeatmap() {
           </div>
           <p className="text-xl font-extrabold text-amber-700 mt-1">{spatialStats.expired}</p>
           <span className="text-[10px] text-amber-700 font-medium">
-            {selectedLayer === "EXPIRED" ? "✓ Filter active (5)" : "Click to filter (5)"}
+            {selectedLayer === "EXPIRED" ? `✓ Filter active (${spatialStats.expired})` : `Click to filter (${spatialStats.expired})`}
           </span>
         </button>
 
@@ -440,7 +496,7 @@ export function ComplianceHeatmap() {
           </div>
           <p className="text-xl font-extrabold text-rose-700 mt-1">{spatialStats.complaintsCount}</p>
           <span className="text-[10px] text-rose-700 font-medium">
-            {selectedLayer === "COMPLAINTS" ? "✓ Filter active (4)" : "Click to filter (4)"}
+            {selectedLayer === "COMPLAINTS" ? `✓ Filter active (${spatialStats.complaintsCount})` : `Click to filter (${spatialStats.complaintsCount})`}
           </span>
         </button>
 
@@ -458,31 +514,57 @@ export function ComplianceHeatmap() {
           </div>
           <p className="text-xl font-extrabold text-emerald-700 mt-1">{spatialStats.verifiedActive}</p>
           <span className="text-[10px] text-emerald-700 font-medium">
-            {selectedLayer === "VERIFIED" ? "✓ Filter active" : "Click to filter"}
+            {selectedLayer === "VERIFIED" ? `✓ Filter active (${spatialStats.verifiedActive})` : `Click to filter (${spatialStats.verifiedActive})`}
           </span>
         </button>
       </div>
 
-      {/* Control Strip: Circles, Layer Toggles, Search & Hub Jump Buttons */}
+      {/* Control Strip: City, Circle, Layer Toggles, Search */}
       <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        {/* Circle Selector */}
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-            Jurisdiction:
-          </span>
-          <select
-            value={selectedCircle}
-            onChange={(e) => setSelectedCircle(e.target.value)}
-            className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="ALL">All Delhi NCR Mandis (5 Circles)</option>
-            <option value="north">Delhi North (Azadpur APMC Hub)</option>
-            <option value="central">Delhi Central (Chandni Chowk Hub)</option>
-            <option value="east">Delhi East (Ghazipur Mandi Hub)</option>
-            <option value="south">Delhi South (Okhla Industrial Hub)</option>
-            <option value="west">Delhi West (Najafgarh Grain Hub)</option>
-          </select>
+        {/* Left cluster: City Selector + Circle Selector */}
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+          {/* City / State Regional Selector */}
+          <div className="flex items-center space-x-1.5">
+            <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-primary">apartment</span>
+              City:
+            </span>
+            <select
+              value={selectedCity}
+              onChange={(e) => handleCityChange(e.target.value as CityId)}
+              className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-bold text-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
+            >
+              {Object.values(INDIAN_CITIES).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Jurisdiction Circle Selector */}
+          <div className="flex items-center space-x-1.5">
+            <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-primary">location_on</span>
+              Circle / Hub:
+            </span>
+            <select
+              value={selectedCircle}
+              onChange={(e) => setSelectedCircle(e.target.value)}
+              className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="ALL">
+                {selectedCity === "ALL_INDIA"
+                  ? "All Regional Mandi Hubs (National)"
+                  : `All ${INDIAN_CITIES[selectedCity]?.name} Mandis (${activeHubs.length} Hubs)`}
+              </option>
+              {activeHubs.map((hub) => (
+                <option key={hub.id} value={hub.id}>
+                  {hub.name} ({hub.circle})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Risk Layer Filter Chips */}
@@ -495,7 +577,7 @@ export function ComplianceHeatmap() {
                 : "bg-surface-container hover:bg-surface-container-high text-on-surface-variant"
             }`}
           >
-            All Scales ({instruments.length})
+            All Scales ({spatialStats.total})
           </button>
           <button
             onClick={() => setSelectedLayer("CRITICAL")}
@@ -506,7 +588,7 @@ export function ComplianceHeatmap() {
             }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
-            Critical / Tampered ({spatialStats.critical})
+            Critical ({spatialStats.critical})
           </button>
           <button
             onClick={() => setSelectedLayer("EXPIRED")}
@@ -559,45 +641,77 @@ export function ComplianceHeatmap() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-[580px]">
         {/* Leaflet Map Visual Canvas */}
         <div className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm relative flex flex-col">
-          {/* Quick Mandi Jump Buttons Floating Bar */}
-          <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1">
-            <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">Quick Focus:</span>
-            <button
-              onClick={() => handleFocusMandi("AZADPUR")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              Azadpur
-            </button>
-            <button
-              onClick={() => handleFocusMandi("CHANDNI_CHOWK")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              Chandni Chowk
-            </button>
-            <button
-              onClick={() => handleFocusMandi("GHAZIPUR")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              Ghazipur
-            </button>
-            <button
-              onClick={() => handleFocusMandi("OKHLA")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              Okhla
-            </button>
-            <button
-              onClick={() => handleFocusMandi("NAJAFGARH")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              Najafgarh
-            </button>
+          {/* Quick Mandi Jump & Tile Switcher Floating Bar */}
+          <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1 flex-wrap gap-y-1 max-w-[calc(100%-120px)]">
+            <span className="text-[10px] font-bold text-slate-500 px-1.5 uppercase tracking-wider">
+              {selectedCity === "ALL_INDIA" ? "Cities:" : "Focus:"}
+            </span>
+            {selectedCity === "ALL_INDIA" ? (
+              <>
+                <button
+                  onClick={() => handleCityChange("DELHI")}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-md hover:bg-slate-100 text-slate-700 transition-colors"
+                >
+                  Delhi NCR
+                </button>
+                <button
+                  onClick={() => handleCityChange("MUMBAI")}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-md hover:bg-slate-100 text-slate-700 transition-colors"
+                >
+                  Mumbai MMR
+                </button>
+                <button
+                  onClick={() => handleCityChange("PUNE")}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-md hover:bg-slate-100 text-slate-700 transition-colors"
+                >
+                  Pune District
+                </button>
+              </>
+            ) : (
+              activeHubs.map((hub) => (
+                <button
+                  key={hub.id}
+                  onClick={() => handleFocusMandi(hub)}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-md hover:bg-slate-100 text-slate-700 transition-colors"
+                >
+                  {hub.shortName}
+                </button>
+              ))
+            )}
             <button
               onClick={handleResetView}
-              title="Reset Statewide View"
-              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+              title="Reset View"
+              className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">restart_alt</span>
+              <span className="material-symbols-outlined text-xs">restart_alt</span>
+            </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+            <span className="text-[10px] font-bold text-slate-500 px-1 uppercase tracking-wider">Tiles:</span>
+            <button
+              onClick={() => setBaseMapStyle("osm")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "osm" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              OSM (Free)
+            </button>
+            <button
+              onClick={() => setBaseMapStyle("esri_gray")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "esri_gray" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              Gov Gray
+            </button>
+            <button
+              onClick={() => setBaseMapStyle("esri_street")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "esri_street" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              Streets
             </button>
           </div>
 
@@ -617,46 +731,40 @@ export function ComplianceHeatmap() {
             </div>
             <div className="flex items-center space-x-2">
               <span className="w-3 h-3 rounded-full bg-amber-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Attention Required (30 Days)</span>
+              <span className="text-slate-700 font-medium">Attention Required (Score &ge;45)</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">Form-A Verified Active</span>
+              <span className="w-3 h-3 rounded-full bg-green-600 border border-white shadow-xs"></span>
+              <span className="text-slate-700 font-medium">Verified Active Scale</span>
             </div>
           </div>
         </div>
 
-        {/* Right Detail / Hotspot List Drawer */}
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col space-y-3 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2">
+        {/* Selected Scale Detail / Spatial Docket Sidebar */}
+        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
             <div>
-              <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-primary">analytics</span>
-                <span>Active Mandi Docket</span>
-              </h3>
-              <p className="text-[11px] text-on-surface-variant">Showing {filteredInstruments.length} geocoded scales</p>
+              <h3 className="font-bold text-sm text-on-surface">Spatial Registry</h3>
+              <p className="text-[11px] text-on-surface-variant">
+                {selectedCity === "ALL_INDIA" ? "Pan-India Directorate" : INDIAN_CITIES[selectedCity]?.name} ({filteredInstruments.length} visible)
+              </p>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface-container text-on-surface-variant border border-outline-variant/30">
-              Live GIS Sync
-            </span>
+            <span className="material-symbols-outlined text-primary text-xl">map</span>
           </div>
 
-          {/* Selected Instrument Inspector Card */}
+          {/* Selected Instrument Detail Card (If Clicked) */}
           {selectedInstrument ? (
-            <div className="bg-primary-container/10 border border-primary/20 rounded-xl p-3.5 space-y-2">
+            <div className="bg-surface-container p-3 rounded-xl border border-primary/30 space-y-2 animate-in fade-in zoom-in duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-primary">{selectedInstrument.digitalInstrumentId}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                  selectedInstrument.priorityFlag === "CRITICAL"
-                    ? "bg-error/20 text-error"
-                    : selectedInstrument.status === "EXPIRED"
-                    ? "bg-amber-500/20 text-amber-700"
-                    : "bg-emerald-500/20 text-emerald-700"
-                }`}>
-                  {selectedInstrument.status}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-on-primary">
+                  {selectedInstrument.category.replace(/_/g, " ")}
+                </span>
+                <span className="text-xs font-mono font-bold text-on-surface">
+                  {selectedInstrument.digitalInstrumentId}
                 </span>
               </div>
-              <p className="text-xs font-bold text-on-surface">{selectedInstrument.ownerName || "Merchant Unknown"}</p>
+
+              <h4 className="font-bold text-sm text-on-surface pt-1">{selectedInstrument.ownerName}</h4>
               <p className="text-[11px] text-on-surface-variant leading-snug">{selectedInstrument.ownerAddress}</p>
               
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-outline-variant/20 text-[11px]">
@@ -746,7 +854,7 @@ export function ComplianceHeatmap() {
                     </div>
                     <p className="text-[11px] text-on-surface-variant font-medium mt-0.5 truncate">{inst.ownerName}</p>
                     <div className="flex items-center justify-between text-[10px] text-on-surface-variant/70 mt-1">
-                      <span>{inst.jurisdictionCircle.replace("Delhi ", "")}</span>
+                      <span className="truncate max-w-[150px]">{inst.jurisdictionCircle}</span>
                       <span className="font-semibold">Risk: {inst.riskScore}/100</span>
                     </div>
                   </div>

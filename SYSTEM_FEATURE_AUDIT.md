@@ -91,17 +91,17 @@ Metrica is built on an enterprise Next.js 15 App Router architecture designed fo
    - Commission Officer Modal: Dynamically register new field inspectors into the national directory with circle assignment, designation, phone, and badge credentials.
 7. **Statutory Explanation Panel Integration:**
    - Seamless embedding of [components/explanation-panel.tsx](file:///d:/Metrica%20SIH%202026/components/explanation-panel.tsx) displaying explainable algorithmic rationale for high-risk flags.
+8. **Interactive GIS Leaflet Compliance Heatmap (USP #23):**
+   - Implemented in [components/compliance-heatmap.tsx](file:///d:/Metrica%20SIH%202026/components/compliance-heatmap.tsx) (`/admin?view=heatmap`). Interactive OpenStreetMap / Leaflet tile layer rendering geographic clusters across Azadpur APMC Mandi, Chandni Chowk, Ghazipur, Okhla, and Najafgarh with real-time risk markers (Red/Yellow/Green), radius filters, and mandi-level statistics.
+9. **Fraud Ring Network Graph (RADAR) (USP #28):**
+   - Implemented in [components/fraud-network-graph.tsx](file:///d:/Metrica%20SIH%202026/components/fraud-network-graph.tsx) (`/admin?view=network-graph`). High-performance interactive SVG network topology visualizing traders, scales, circles, complaints, and suspicious cloned serials with live physics, pan/zoom, benami links, and fraud-only filtering.
 
 ### 📋 Features To Be Added (Planned / Roadmap)
-1. **Interactive GIS Leaflet Compliance Heatmap (USP #23):**
-   - Full OpenStreetMap / Leaflet tile layer rendering geographic clusters of expired scales, short-weight complaints, and mandi hotspots by district pin-code.
-2. **Network Graph Fraud Detector (USP #28):**
-   - Visual entity-relationship graph highlighting suspicious multi-business ownership ties or cloned serials across state borders.
-3. **Batch Model Failure Analytics (USP #22):**
+1. **Batch Model Failure Analytics (USP #22):**
    - Automated manufacturer defect detection curve flagging sudden sensor drift in specific scale models (e.g. Apex Counter Pro Batch #88).
-4. **Immutable Audit Ledger Timeline Viewer (USP #24):**
+2. **Immutable Audit Ledger Timeline Viewer (USP #24):**
    - Dedicated cryptographic transaction stream displaying before/after diffs for supervisor overrides, record corrections, and seal re-assignments.
-5. **Automated Escalation Rule Builder (USP #42):**
+3. **Automated Escalation Rule Builder (USP #42):**
    - Configurable rules (e.g., *if complaint unresolved > 7 days $\to$ auto-escalate to Deputy Controller*).
 
 ---
@@ -480,8 +480,8 @@ This section maps all **61 master capabilities** discussed in the [PROJECT_BLUEP
 | **20** | **Document Consistency Checking** | Cross-checks invoice data and uploaded KYC against registered scale specifications. | Owner, Admin | `[PARTIAL / ENHANCED]` | Verified specs comparison; add automated OCR check |
 | **21** | **Compliance Readiness Score** | Pre-submission checklist progress bar (e.g., *"75% Ready - Missing seal photo"*). | Owner | `[ACTIVE / BUILT]` | [components/compliance-readiness-meter.tsx](file:///d:/Metrica%20SIH%202026/components/compliance-readiness-meter.tsx) |
 | **22** | **Model Failure Pattern Detection** | Batch-level anomaly detection flagging manufacturer defect clusters across districts. | Admin | `[ROADMAP / TO ADD]` | Batch defect frequency curve chart |
-| **23** | **Jurisdiction Compliance Heatmap** | Interactive spatial map of expired devices, pendency hotspots, and mandi risk clusters. | Admin | `[ROADMAP / TO ADD]` | Interactive Leaflet GIS map |
-| **28** | **Network-Based Fraud Detection** | Graph-based clustering flagging suspicious ties (same physical scale across multiple GSTINs). | Admin | `[ROADMAP / TO ADD]` | Visual entity relationship graph |
+| **23** | **Jurisdiction Compliance Heatmap** | Interactive spatial map of expired devices, pendency hotspots, and mandi risk clusters. | Admin | `[ACTIVE / BUILT]` | [components/compliance-heatmap.tsx](file:///d:/Metrica%20SIH%202026/components/compliance-heatmap.tsx) |
+| **28** | **Network-Based Fraud Detection** | Graph-based clustering flagging suspicious ties (same physical scale across multiple GSTINs). | Admin | `[ACTIVE / BUILT]` | [components/fraud-network-graph.tsx](file:///d:/Metrica%20SIH%202026/components/fraud-network-graph.tsx) |
 | **37** | **Smart Case Clustering** | Geographic grouping of pending inspections by APMC mandi hub for optimal route planning. | Admin | `[PARTIAL / ENHANCED]` | Circle & hub grouping in [app/admin/page.tsx](file:///d:/Metrica%20SIH%202026/app/admin/page.tsx) |
 | **52** | **Pincode-to-Circle Auto-Routing** | Maps shop addresses directly to assigned LMO territorial circles and APMC hubs. | Admin, Owner | `[ACTIVE / BUILT]` | [app/admin/page.tsx#L98](file:///d:/Metrica%20SIH%202026/app/admin/page.tsx#L98), [app/owner/page.tsx](file:///d:/Metrica%20SIH%202026/app/owner/page.tsx) |
 

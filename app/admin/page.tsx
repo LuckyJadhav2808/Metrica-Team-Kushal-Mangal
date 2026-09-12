@@ -1624,6 +1624,10 @@ function AdminCommandCenterContent() {
                     <option value="Delhi East District Circle">Delhi East District Circle</option>
                     <option value="Delhi South District Circle">Delhi South District Circle</option>
                     <option value="Delhi West District Circle">Delhi West District Circle</option>
+                    <option value="Navi Mumbai & Konkan Circle">Navi Mumbai & Konkan Circle</option>
+                    <option value="South Mumbai District Circle">South Mumbai District Circle</option>
+                    <option value="Pune Central Circle">Pune Central Circle</option>
+                    <option value="Pimpri-Chinchwad Industrial Circle">Pimpri-Chinchwad Industrial Circle</option>
                   </select>
                 </div>
                 <div>
