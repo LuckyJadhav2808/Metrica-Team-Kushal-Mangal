@@ -4,102 +4,14 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useMetrica } from "@/lib/store";
 import { Instrument } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-
-// District circles and APMC hub center coordinates in Pune, Maharashtra
-export interface MandiHubCoord {
-  id: string;
-  name: string;
-  circle: string;
-  lat: number;
-  lng: number;
-  pincode: string;
-  description: string;
-  activeScalesCount: number;
-}
-
-export const PUNE_HUBS: Record<string, MandiHubCoord> = {
-  KOTHRUD: {
-    id: "KOTHRUD",
-    name: "Kothrud & Karve Road Commercial Circle",
-    circle: "Pune West District Circle",
-    lat: 18.5074,
-    lng: 73.8077,
-    pincode: "411038",
-    description: "Retail markets, Paud Road commercial establishments, gold jewellers & retail counter scales",
-    activeScalesCount: 4,
-  },
-  BANER: {
-    id: "BANER",
-    name: "Baner & Balewadi Trade Hub",
-    circle: "Pune North-West District Circle",
-    lat: 18.5590,
-    lng: 73.7868,
-    pincode: "411045",
-    description: "High-density retail supermarkets, logistics centers & IT corridor commercial balances",
-    activeScalesCount: 3,
-  },
-  HADAPSAR: {
-    id: "HADAPSAR",
-    name: "Hadapsar APMC Wholesale Mandi",
-    circle: "Pune East District Circle",
-    lat: 18.5089,
-    lng: 73.9259,
-    pincode: "411028",
-    description: "Pune East primary agro-produce APMC wholesale market, grain elevators & heavy weighbridges",
-    activeScalesCount: 4,
-  },
-  AUNDH: {
-    id: "AUNDH",
-    name: "Aundh & University Sector",
-    circle: "Pune North District Circle",
-    lat: 18.5580,
-    lng: 73.8075,
-    pincode: "411007",
-    description: "Departmental chains, analytical balances & pharmaceutical precision measuring devices",
-    activeScalesCount: 3,
-  },
-  SINHGAD: {
-    id: "SINHGAD",
-    name: "Sinhgad Road & Dhayari Agro-Belt",
-    circle: "Pune South District Circle",
-    lat: 18.4715,
-    lng: 73.8242,
-    pincode: "411051",
-    description: "Wholesale produce distribution, building material weighbridges & agro-feed centers",
-    activeScalesCount: 2,
-  },
-};
-
-// Offset generator to place individual instruments within their Pune hub radius
-function getCoordinatesForInstrument(inst: Instrument, index: number): [number, number] {
-  const hubsList = Object.values(PUNE_HUBS);
-  let base = hubsList[index % hubsList.length];
-
-  const circle = (inst.jurisdictionCircle || "").toLowerCase();
-  const address = (inst.ownerAddress || "").toLowerCase();
-  const id = (inst.digitalInstrumentId || "").toLowerCase();
-  const pin = inst.pincode || "";
-
-  if (address.includes("kothrud") || circle.includes("west") || pin === "411038" || id.includes("az01") || id.includes("az02")) {
-    base = PUNE_HUBS.KOTHRUD;
-  } else if (address.includes("baner") || circle.includes("north-west") || pin === "411045" || id.includes("az03") || id.includes("55201")) {
-    base = PUNE_HUBS.BANER;
-  } else if (address.includes("hadapsar") || circle.includes("east") || pin === "411028" || id.includes("az04") || id.includes("50t")) {
-    base = PUNE_HUBS.HADAPSAR;
-  } else if (address.includes("aundh") || circle.includes("north") || pin === "411007" || id.includes("plt") || id.includes("carat")) {
-    base = PUNE_HUBS.AUNDH;
-  } else if (address.includes("sinhgad") || circle.includes("south") || pin === "411051" || id.includes("grain") || id.includes("dispenser")) {
-    base = PUNE_HUBS.SINHGAD;
-  }
-
-  // Jitter slightly based on golden angle dispersion so markers don't stack
-  const angle = (index * 137.5 * Math.PI) / 180;
-  const radius = 0.0035 + (index % 5) * 0.002; // ~350 to 950 meters radius
-  const lat = base.lat + radius * Math.cos(angle);
-  const lng = base.lng + (radius * Math.sin(angle)) * 1.05;
-
-  return [lat, lng];
-}
+import {
+  INDIAN_CITIES,
+  CityId,
+  MandiHub,
+  getCityForInstrument,
+  getCoordinatesForInstrument,
+  getAllMandiHubs,
+} from "@/lib/geo-config";
 
 export function ComplianceHeatmap() {
   const { instruments, complaints } = useMetrica();
@@ -111,11 +23,13 @@ export function ComplianceHeatmap() {
   const tileLayerRef = useRef<any>(null);
 
   // Filter states
+  const [selectedCity, setSelectedCity] = useState<CityId>("PUNE");
   const [selectedCircle, setSelectedCircle] = useState<string>("ALL");
   const [selectedLayer, setSelectedLayer] = useState<"ALL" | "CRITICAL" | "EXPIRED" | "COMPLAINTS" | "VERIFIED">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null);
   const [isLeafletReady, setIsLeafletReady] = useState(false);
+  const [baseMapStyle, setBaseMapStyle] = useState<"voyager" | "osm" | "esri_gray" | "satellite" | "mapbox">("voyager");
 
   // Real-Time GIS & API Key states
   const [mapApiKey, setMapApiKey] = useState<string>(() => {
@@ -129,40 +43,65 @@ export function ComplianceHeatmap() {
     }
     return process.env.NEXT_PUBLIC_MAP_API_KEY || "";
   });
-  const [activeLayerType, setActiveLayerType] = useState<"CARTO" | "SATELLITE_HYBRID" | "MAPBOX_REALTIME">("CARTO");
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [tempApiKey, setTempApiKey] = useState(mapApiKey);
   const [isRealTimeRadarActive, setIsRealTimeRadarActive] = useState(true);
   const [lastTelemetryTimestamp, setLastTelemetryTimestamp] = useState<string>("Just now");
 
-  // Compute spatial statistics
-  const spatialStats = useMemo(() => {
-    const total = instruments.length;
-    const critical = instruments.filter(
-      (i) => i.priorityFlag === "CRITICAL" || i.status === "SUSPENDED_TAMPERED" || i.riskScore >= 75
-    ).length;
-    const expired = instruments.filter(
-      (i) => i.status === "EXPIRED" || (i.validUntil && new Date(i.validUntil) < new Date())
-    ).length;
-    const complaintsCount = complaints.filter(
-      (c) => c.status === "LOGGED" || c.status === "UNDER_INVESTIGATION"
-    ).length;
-    const verifiedActive = instruments.filter((i) => i.status === "VERIFIED_ACTIVE").length;
-    return { total, critical, expired, complaintsCount, verifiedActive };
-  }, [instruments, complaints]);
+  // City configuration and active hubs
+  const activeCityConfig = INDIAN_CITIES[selectedCity] || INDIAN_CITIES.PUNE;
+  const activeHubs = useMemo(() => {
+    return selectedCity === "ALL_INDIA" ? getAllMandiHubs() : activeCityConfig.hubs;
+  }, [selectedCity, activeCityConfig]);
 
-  // Filter instruments based on user selection
+  // Instruments scoped to selected city
+  const cityInstruments = useMemo(() => {
+    if (selectedCity === "ALL_INDIA") return instruments;
+    return instruments.filter((inst) => getCityForInstrument(inst) === selectedCity);
+  }, [instruments, selectedCity]);
+
+  // Complaints scoped to selected city
+  const cityComplaints = useMemo(() => {
+    if (selectedCity === "ALL_INDIA") return complaints;
+    const validInstrumentIds = new Set(cityInstruments.map((i) => i.digitalInstrumentId));
+    return complaints.filter((c) => Boolean(c.instrumentId && validInstrumentIds.has(c.instrumentId)));
+  }, [complaints, cityInstruments, selectedCity]);
+
+  // Spatial Statistics
+  const spatialStats = useMemo(() => {
+    const total = cityInstruments.length;
+    const critical = cityInstruments.filter(
+      (i) => i.priorityFlag === "CRITICAL" || i.status === "SUSPENDED_TAMPERED" || i.riskScore >= 70
+    ).length;
+    const expired = cityInstruments.filter((i) => {
+      return i.validUntil ? new Date(i.validUntil) < new Date() : false;
+    }).length;
+    const verifiedActive = cityInstruments.filter((i) => i.status === "VERIFIED_ACTIVE").length;
+    const complaintsCount = cityComplaints.length;
+
+    return { total, critical, expired, verifiedActive, complaintsCount };
+  }, [cityInstruments, cityComplaints]);
+
+  // Filter instruments based on user selection (Circle, Layer, Search)
   const filteredInstruments = useMemo(() => {
-    return instruments.filter((inst) => {
-      // 1. Circle filter (Pune Divisions)
+    return cityInstruments.filter((inst) => {
+      // 1. Circle / Mandi filter
       if (selectedCircle !== "ALL") {
-        const circleKey = selectedCircle.toUpperCase();
-        const hub = PUNE_HUBS[circleKey];
-        if (hub) {
-          const matchCircle = inst.jurisdictionCircle?.toLowerCase().includes(selectedCircle.toLowerCase());
-          const matchAddress = inst.ownerAddress?.toLowerCase().includes(selectedCircle.toLowerCase());
-          const matchPincode = inst.pincode === hub.pincode;
-          if (!matchCircle && !matchAddress && !matchPincode) return false;
+        const circleKey = selectedCircle.toLowerCase();
+        const instCircle = (inst.jurisdictionCircle || "").toLowerCase();
+        const instAddress = (inst.ownerAddress || "").toLowerCase();
+        const instPin = (inst.pincode || "").trim();
+
+        const matchedHub = activeHubs.find((h) => h.id === selectedCircle);
+        if (matchedHub) {
+          const matchesHub =
+            instCircle.includes(matchedHub.shortName.toLowerCase()) ||
+            instCircle.includes(matchedHub.circle.toLowerCase()) ||
+            instAddress.includes(matchedHub.shortName.toLowerCase()) ||
+            instPin === matchedHub.pincode;
+          if (!matchesHub) return false;
+        } else {
+          if (!instCircle.includes(circleKey)) return false;
         }
       }
 
@@ -171,14 +110,12 @@ export function ComplianceHeatmap() {
         if (inst.priorityFlag !== "CRITICAL" && inst.status !== "SUSPENDED_TAMPERED" && inst.riskScore < 70) return false;
       } else if (selectedLayer === "EXPIRED") {
         const isPast = inst.validUntil ? new Date(inst.validUntil) < new Date() : false;
-        if (inst.status !== "EXPIRED" && !isPast) return false;
+        if (!isPast && inst.status !== "EXPIRED") return false;
       } else if (selectedLayer === "VERIFIED") {
         if (inst.status !== "VERIFIED_ACTIVE") return false;
       } else if (selectedLayer === "COMPLAINTS") {
-        const hasComplaint = complaints.some(
-          (c) => c.digitalInstrumentId === inst.digitalInstrumentId || c.instrumentId === inst.id
-        );
-        if (!hasComplaint) return false;
+        const hasComplaint = cityComplaints.some((c) => c.instrumentId === inst.digitalInstrumentId);
+        if (!hasComplaint && inst.priorityFlag !== "CRITICAL") return false;
       }
 
       // 3. Search query
@@ -193,7 +130,7 @@ export function ComplianceHeatmap() {
 
       return true;
     });
-  }, [instruments, complaints, selectedCircle, selectedLayer, searchQuery]);
+  }, [cityInstruments, cityComplaints, selectedCircle, selectedLayer, searchQuery, activeHubs]);
 
   // Periodic Telemetry Simulation
   useEffect(() => {
@@ -205,26 +142,26 @@ export function ComplianceHeatmap() {
     return () => clearInterval(interval);
   }, [isRealTimeRadarActive]);
 
-  // Update Tile Layer dynamically when activeLayerType or mapApiKey changes
-  const applyTileLayer = async (L: any, map: any, layerType: string, apiKey: string) => {
+  // Dynamic Tile Layer Switcher
+  const applyTileLayer = async (L: any, map: any, style: string, apiKey: string) => {
     if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
+      try {
+        map.removeLayer(tileLayerRef.current);
+      } catch {}
       tileLayerRef.current = null;
     }
 
     let layer: any;
 
-    if (layerType === "SATELLITE_HYBRID") {
-      // High-resolution Satellite Imagery (Esri World Imagery) with street overlay
+    if (style === "satellite") {
       layer = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
-          attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+          attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Earthstar Geographics',
           maxZoom: 19,
         }
       );
-    } else if (layerType === "MAPBOX_REALTIME" && apiKey.trim()) {
-      // Mapbox / Vector Real-Time Tile Service with API Key
+    } else if (style === "mapbox" && apiKey.trim()) {
       layer = L.tileLayer(
         `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${apiKey.trim()}`,
         {
@@ -234,8 +171,21 @@ export function ComplianceHeatmap() {
           maxZoom: 20,
         }
       );
+    } else if (style === "esri_gray") {
+      layer = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+          maxZoom: 19,
+        }
+      );
+    } else if (style === "osm") {
+      layer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      });
     } else {
-      // Clean Institutional CartoDB Voyager Tile Layer
+      // Default: CartoDB Voyager
       layer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
@@ -246,14 +196,13 @@ export function ComplianceHeatmap() {
     tileLayerRef.current = layer;
   };
 
-  // Load Leaflet dynamically on the client
+  // Load Leaflet dynamically on client mount
   useEffect(() => {
     let isMounted = true;
 
     async function initLeaflet() {
       if (typeof window === "undefined" || !mapContainerRef.current) return;
 
-      // Inject Leaflet CSS if not present
       if (!document.getElementById("leaflet-css")) {
         const link = document.createElement("link");
         link.id = "leaflet-css";
@@ -267,20 +216,17 @@ export function ComplianceHeatmap() {
       if (!isMounted) return;
 
       if (!mapInstanceRef.current && mapContainerRef.current) {
-        // Initialize Map centered on Pune, Maharashtra (18.5204, 73.8567)
+        const defaultCity = INDIAN_CITIES.PUNE;
         const map = L.map(mapContainerRef.current, {
-          center: [18.5204, 73.8467],
-          zoom: 12,
+          center: defaultCity.center,
+          zoom: defaultCity.zoom,
           zoomControl: false,
         });
 
-        // Add custom Zoom control at top-right
         L.control.zoom({ position: "topright" }).addTo(map);
 
-        // Apply selected tile layer
-        await applyTileLayer(L, map, activeLayerType, mapApiKey);
+        await applyTileLayer(L, map, baseMapStyle, mapApiKey);
 
-        // Group layer for markers
         const markersLayer = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
         markersLayerRef.current = markersLayer;
@@ -299,15 +245,15 @@ export function ComplianceHeatmap() {
     };
   }, []);
 
-  // Effect to change tile layer when user toggles or changes API key
+  // Update Tile Layer when style or API key changes
   useEffect(() => {
     if (!isLeafletReady || !mapInstanceRef.current) return;
     import("leaflet").then((L) => {
-      applyTileLayer(L, mapInstanceRef.current, activeLayerType, mapApiKey);
+      applyTileLayer(L, mapInstanceRef.current, baseMapStyle, mapApiKey);
     });
-  }, [activeLayerType, mapApiKey, isLeafletReady]);
+  }, [baseMapStyle, mapApiKey, isLeafletReady]);
 
-  // Update map markers whenever filteredInstruments changes or Leaflet becomes ready
+  // Update map markers whenever filteredInstruments changes or city changes
   useEffect(() => {
     if (!isLeafletReady || !mapInstanceRef.current || !markersLayerRef.current) return;
 
@@ -320,136 +266,122 @@ export function ComplianceHeatmap() {
       const markersLayer = markersLayerRef.current;
       markersLayer.clearLayers();
 
-      // 1. Add Pune Regional Hub Perimeter Circles
-      Object.values(PUNE_HUBS).forEach((hub) => {
+      // 1. Add Mandi Regional Hub Perimeter Circles for active view
+      activeHubs.forEach((hub) => {
         const hubCircle = L.circle([hub.lat, hub.lng], {
-          radius: 1400,
-          color: "#1e3a8a",
+          radius: hub.radiusMeters || 1600,
+          color: "#1a4d8f",
+          fillColor: "#1a4d8f",
+          fillOpacity: 0.04,
           weight: 1.5,
-          dashArray: "5, 6",
-          fillColor: "#3b82f6",
-          fillOpacity: 0.06,
+          dashArray: "4, 6",
         });
 
-        const hubTooltip = `
+        const pulseCircle = L.circleMarker([hub.lat, hub.lng], {
+          radius: 8,
+          color: "#1a4d8f",
+          fillColor: "#3b82f6",
+          fillOpacity: 0.35,
+          weight: 2,
+        });
+
+        const tooltipContent = `
           <div style="font-family: inherit; font-size: 11px; padding: 2px;">
-            <b style="color: #1e3a8a;">${hub.name}</b><br/>
-            <span style="color: #475569;">${hub.circle} • PIN: ${hub.pincode}</span><br/>
-            <span style="color: #64748b; font-size: 10px;">${hub.description}</span>
+            <b style="color: #1a4d8f; font-size: 12px;">${hub.name}</b><br/>
+            <span style="color: #64748b;">${hub.circle}</span><br/>
+            <span style="color: #475569; font-size: 10px;">${hub.description}</span>
           </div>
         `;
-        hubCircle.bindTooltip(hubTooltip, { sticky: true, className: "pune-hub-tooltip" });
-        markersLayer.addLayer(hubCircle);
+        hubCircle.bindTooltip(tooltipContent, { sticky: true });
+        pulseCircle.bindTooltip(tooltipContent, { sticky: true });
 
-        // Concentric live pulse radar ring if real-time radar is active
-        if (isRealTimeRadarActive) {
-          const radarRing = L.circle([hub.lat, hub.lng], {
-            radius: 2000,
-            color: "#60a5fa",
-            weight: 1,
-            dashArray: "2, 8",
-            fillColor: "#93c5fd",
-            fillOpacity: 0.02,
-          });
-          markersLayer.addLayer(radarRing);
-        }
+        markersLayer.addLayer(hubCircle);
+        markersLayer.addLayer(pulseCircle);
       });
 
-      // 2. Add Instrument Markers with status colors
-      filteredInstruments.forEach((inst, index) => {
-        const [lat, lng] = getCoordinatesForInstrument(inst, index);
+      // 2. Add individual instruments markers with statutory compliance badges
+      filteredInstruments.forEach((inst, idx) => {
+        const [lat, lng] = getCoordinatesForInstrument(inst, idx);
 
         const isCritical = inst.priorityFlag === "CRITICAL" || inst.status === "SUSPENDED_TAMPERED" || inst.riskScore >= 70;
         const isExpired = inst.status === "EXPIRED" || (inst.validUntil && new Date(inst.validUntil) < new Date());
-        const isWarning = inst.priorityFlag === "HIGH" || inst.status === "EXPIRING_SOON" || inst.riskScore >= 45;
 
-        let markerColor = "#16a34a"; // Green (Verified Active)
-        let statusText = "VERIFIED ACTIVE";
+        let markerColor = "#16a34a"; // Green (Compliant)
+        let statusText = isHi ? "सत्यापित सक्रिय" : "Verified Active";
 
         if (isCritical) {
-          markerColor = "#dc2626"; // Red (Critical / Tampered)
-          statusText = inst.status === "SUSPENDED_TAMPERED" ? "TAMPERED / SUSPENDED" : "CRITICAL FRAUD RISK";
+          markerColor = "#dc2626"; // Red (Critical)
+          statusText = isHi ? "गंभीर / छेड़छाड़" : "Critical Tamper";
         } else if (isExpired) {
-          markerColor = "#ea580c"; // Orange (Expired)
-          statusText = "EXPIRED SEAL";
-        } else if (isWarning) {
-          markerColor = "#d97706"; // Amber (High Risk)
-          statusText = "ATTENTION REQUIRED";
+          markerColor = "#d97706"; // Amber (Expired)
+          statusText = isHi ? "मुहर समाप्त" : "Stamping Expired";
         }
 
-        // Custom HTML DivIcon
         const customIcon = L.divIcon({
-          className: "custom-metrica-pin",
+          className: "custom-leaflet-marker",
           html: `
-            <div style="position: relative; width: 28px; height: 28px;">
-              ${
-                isCritical
-                  ? `<div style="position: absolute; inset: -4px; border-radius: 9999px; background: rgba(220, 38, 38, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>`
-                  : ""
-              }
-              <div style="
-                width: 28px;
-                height: 28px;
-                border-radius: 9999px;
-                background: ${markerColor};
-                border: 2.5px solid #ffffff;
-                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: 700;
-              ">
-                ${isCritical ? "!" : isExpired ? "✕" : "✓"}
-              </div>
+            <div style="
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              background-color: ${markerColor};
+              border: 2px solid #ffffff;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: transform 0.15s ease;
+            ">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background: #ffffff;"></div>
             </div>
           `,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
           popupAnchor: [0, -14],
         });
 
         const marker = L.marker([lat, lng], { icon: customIcon });
 
-        // Build rich interactive popup
         const popupContent = `
-          <div style="font-family: inherit; width: 240px; padding: 4px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
-              <span style="font-weight: 800; font-size: 12px; color: #1e3a8a; letter-spacing: 0.5px;">${inst.digitalInstrumentId}</span>
-              <span style="font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${
-                isCritical ? "#fee2e2; color: #b91c1c;" : isExpired ? "#ffedd5; color: #c2410c;" : "#dcfce7; color: #15803d;"
-              }">${statusText}</span>
+          <div style="font-family: inherit; min-width: 230px; padding: 3px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+              <span style="font-size: 10px; font-weight: 700; color: ${markerColor}; text-transform: uppercase;">
+                ${statusText}
+              </span>
+              <span style="font-size: 10px; color: #64748b; font-family: monospace;">
+                ${inst.digitalInstrumentId}
+              </span>
             </div>
-            <div style="font-size: 11px; color: #1e293b; margin-bottom: 4px;">
-              <b>Establishment:</b> ${inst.ownerName || "Merchant Establishment"}
-            </div>
-            <div style="font-size: 11px; color: #475569; margin-bottom: 6px; line-height: 1.3;">
-              <b>Location:</b> ${inst.ownerAddress || inst.jurisdictionCircle}
-            </div>
+
+            <h4 style="margin: 0 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">
+              ${inst.ownerName || (isHi ? "व्यापारी प्रतिष्ठान" : "Commercial Establishment")}
+            </h4>
+
+            <p style="margin: 0 0 6px 0; font-size: 11px; color: #334155; line-height: 1.3;">
+              ${inst.ownerAddress || inst.jurisdictionCircle}
+            </p>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #f8fafc; padding: 6px; border-radius: 6px; font-size: 10px; margin-bottom: 8px;">
               <div>
-                <span style="color: #64748b; display: block;">Risk Index</span>
+                <span style="color: #64748b; display: block;">${isHi ? "जोखिम सूचकांक" : "Risk Index"}</span>
                 <b style="font-size: 12px; color: ${inst.riskScore >= 70 ? "#dc2626" : inst.riskScore >= 40 ? "#d97706" : "#16a34a"};">${inst.riskScore}/100</b>
               </div>
               <div>
-                <span style="color: #64748b; display: block;">Trust Score</span>
+                <span style="color: #64748b; display: block;">${isHi ? "विश्वास स्कोर" : "Trust Score"}</span>
                 <b style="font-size: 12px; color: #0284c7;">${inst.trustScore}%</b>
               </div>
             </div>
+
             <div style="display: flex; gap: 6px;">
-              <a href="/qr/${encodeURIComponent(inst.digitalInstrumentId)}" target="_blank" style="flex: 1; text-align: center; background: #1e3a8a; color: #ffffff; text-decoration: none; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">
-                Inspect QR
-              </a>
-              <a href="/admin?filter=HIGH_RISK" style="flex: 1; text-align: center; background: #e2e8f0; color: #1e293b; text-decoration: none; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">
-                Audit Docket
+              <a href="/qr/${encodeURIComponent(inst.digitalInstrumentId)}" target="_blank" style="flex: 1; text-align: center; background: #1a4d8f; color: #ffffff; text-decoration: none; padding: 5px 8px; border-radius: 6px; font-size: 10px; font-weight: 600;">
+                ${isHi ? "क्यूआर जांचें" : "Inspect QR"}
               </a>
             </div>
           </div>
         `;
 
-        marker.bindPopup(popupContent, { maxWidth: 280, className: "custom-leaflet-popup" });
-
+        marker.bindPopup(popupContent);
         marker.on("click", () => {
           setSelectedInstrument(inst);
         });
@@ -463,18 +395,28 @@ export function ComplianceHeatmap() {
     return () => {
       isMounted = false;
     };
-  }, [filteredInstruments, isLeafletReady, isRealTimeRadarActive]);
+  }, [filteredInstruments, activeHubs, isLeafletReady, isHi]);
 
-  // Center map on a specific Pune hub
-  const handleFocusMandi = (hubKey: keyof typeof PUNE_HUBS) => {
+  // Handle City Change (fly to coordinates & reset circle)
+  const handleCityChange = (cityId: CityId) => {
+    setSelectedCity(cityId);
+    setSelectedCircle("ALL");
+    const city = INDIAN_CITIES[cityId];
+    if (city && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(city.center, city.zoom, { duration: 1.4 });
+    }
+  };
+
+  // Center map on a specific Mandi hub
+  const handleFocusMandi = (hub: MandiHub) => {
     if (!mapInstanceRef.current) return;
-    const hub = PUNE_HUBS[hubKey];
     mapInstanceRef.current.flyTo([hub.lat, hub.lng], 14, { duration: 1.2 });
   };
 
   const handleResetView = () => {
     if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.flyTo([18.5204, 73.8467], 12, { duration: 1.0 });
+    const currentCity = INDIAN_CITIES[selectedCity] || INDIAN_CITIES.PUNE;
+    mapInstanceRef.current.flyTo(currentCity.center, currentCity.zoom, { duration: 1.0 });
   };
 
   // Save user API key
@@ -486,7 +428,7 @@ export function ComplianceHeatmap() {
       localStorage.setItem("metrica_map_api_key", cleanKey);
     }
     if (cleanKey) {
-      setActiveLayerType("MAPBOX_REALTIME");
+      setBaseMapStyle("mapbox");
     }
     setIsApiKeyModalOpen(false);
   };
@@ -499,13 +441,13 @@ export function ComplianceHeatmap() {
           onClick={() => setSelectedLayer("ALL")}
           className={`text-left bg-surface-container-lowest border rounded-xl p-3 shadow-xs transition-all cursor-pointer hover:scale-[1.01] ${
             selectedLayer === "ALL"
-              ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-              : "border-outline-variant/30 hover:border-primary/40"
+              ? "border-primary ring-2 ring-primary/30 bg-primary-container/20"
+              : "border-outline-variant/30 hover:border-outline"
           }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-              {isHi ? "पुणे माप उपकरण" : "Pune Scales"}
+              {isHi ? "सभी माप उपकरण" : "All Scales"}
             </span>
             <span className="material-symbols-outlined text-primary text-lg">pin_drop</span>
           </div>
@@ -604,77 +546,56 @@ export function ComplianceHeatmap() {
         </button>
       </div>
 
-      {/* Control Strip: Pune Circles, Layer Toggles, Search & Real-Time API Key Bar */}
+      {/* Control Strip: City Selector, Mandi Circle Dropdown, Real-time API Key, Search */}
       <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        {/* Circle Selector (Pune Local Divisions) */}
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-            <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-            {isHi ? "पुणे संभाग:" : "Pune Division:"}
-          </span>
-          <select
-            value={selectedCircle}
-            onChange={(e) => setSelectedCircle(e.target.value)}
-            className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="ALL">{isHi ? "सभी पुणे मंडी केंद्र (5 संभाग)" : "All Pune Mandi Hubs (5 Divisions)"}</option>
-            <option value="KOTHRUD">{isHi ? "कोथरूड एवं कर्वे रोड (पुणे पश्चिम)" : "Kothrud & Karve Rd (Pune West)"}</option>
-            <option value="BANER">{isHi ? "बानेर एवं बालेवाड़ी (पुणे उत्तर-पश्चिम)" : "Baner & Balewadi (Pune North-West)"}</option>
-            <option value="HADAPSAR">{isHi ? "हडपसर एपीएमसी मंडी (पुणे पूर्व)" : "Hadapsar APMC Mandi (Pune East)"}</option>
-            <option value="AUNDH">{isHi ? "औंध एवं विश्वविद्यालय क्षेत्र (पुणे उत्तर)" : "Aundh & University Sector (Pune North)"}</option>
-            <option value="SINHGAD">{isHi ? "सिंहगढ़ रोड एवं धायरी (पुणे दक्षिण)" : "Sinhgad Road & Dhayari (Pune South)"}</option>
-          </select>
-        </div>
-
-        {/* Real-time Map Stream & API Key Controls */}
-        <div className="flex items-center space-x-2">
-          {/* Tile Layer Selector */}
-          <div className="flex items-center bg-surface border border-outline-variant/40 rounded-lg p-0.5 text-[11px] font-semibold">
-            <button
-              onClick={() => setActiveLayerType("CARTO")}
-              className={`px-2 py-1 rounded-md transition-all ${
-                activeLayerType === "CARTO" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
-              }`}
+        {/* City & Circle Selectors */}
+        <div className="flex items-center flex-wrap gap-2">
+          {/* City Selector */}
+          <div className="flex items-center space-x-1.5">
+            <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-primary">location_city</span>
+              <span>{isHi ? "शहर / संभाग:" : "City Jurisdiction:"}</span>
+            </span>
+            <select
+              value={selectedCity}
+              onChange={(e) => handleCityChange(e.target.value as CityId)}
+              className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-bold text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              {isHi ? "मानचित्र" : "Voyager"}
-            </button>
-            <button
-              onClick={() => setActiveLayerType("SATELLITE_HYBRID")}
-              className={`px-2 py-1 rounded-md transition-all ${
-                activeLayerType === "SATELLITE_HYBRID" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {isHi ? "उपग्रह दृश्य (सैटेलाइट)" : "Satellite"}
-            </button>
-            <button
-              onClick={() => {
-                if (!mapApiKey) {
-                  setIsApiKeyModalOpen(true);
-                } else {
-                  setActiveLayerType("MAPBOX_REALTIME");
-                }
-              }}
-              className={`px-2 py-1 rounded-md transition-all flex items-center gap-1 ${
-                activeLayerType === "MAPBOX_REALTIME" ? "bg-primary text-white shadow-xs" : "text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              <span>{isHi ? "मैपबॉक्स लाइव" : "Mapbox Live"}</span>
-              {mapApiKey ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              ) : (
-                <span className="text-[9px] px-1 bg-amber-500/20 text-amber-700 rounded">{isHi ? "कुंजी" : "Key"}</span>
-              )}
-            </button>
+              <option value="PUNE">📍 Pune District (8 Mandis)</option>
+              <option value="DELHI">📍 Delhi NCR (5 Mandis)</option>
+              <option value="MUMBAI">📍 Mumbai MMR (4 Mandis)</option>
+              <option value="ALL_INDIA">🇮🇳 Pan-India Directorate</option>
+            </select>
           </div>
 
-          {/* API Key Modal Button */}
+          {/* Mandi Circle Selector */}
+          <div className="flex items-center space-x-1.5">
+            <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-primary">storefront</span>
+              <span>{isHi ? "मंडी मंडल:" : "Mandi Circle:"}</span>
+            </span>
+            <select
+              value={selectedCircle}
+              onChange={(e) => setSelectedCircle(e.target.value)}
+              className="text-xs bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 font-medium text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="ALL">{isHi ? "सभी मंडी मंडल" : "All Mandi Circles"}</option>
+              {activeHubs.map((hub) => (
+                <option key={hub.id} value={hub.id}>
+                  {hub.shortName} ({hub.circle})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* API Key Modal Trigger */}
           <button
             onClick={() => setIsApiKeyModalOpen(true)}
             className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant/40 rounded-lg text-xs font-semibold text-on-surface flex items-center gap-1.5 transition-colors"
             title="Configure Real-time Map API Key (Mapbox / MapTiler)"
           >
-            <span className="material-symbols-outlined text-[15px] text-primary">vpn_key</span>
-            <span>{mapApiKey ? (isHi ? "एपीआई कुंजी कॉन्फ़िगर है" : "API Key Configured") : (isHi ? "मानचित्र एपीआई कुंजी जोड़ें" : "Add Map API Key")}</span>
+            <span className="material-symbols-outlined text-[15px] text-primary" translate="no">vpn_key</span>
+            <span>{mapApiKey ? (isHi ? "एपीआई कुंजी सक्रिय" : "API Key Configured") : (isHi ? "मानचित्र एपीआई कुंजी जोड़ें" : "Add Map API Key")}</span>
           </button>
 
           {/* Real-time Radar Pulse Toggle */}
@@ -692,13 +613,13 @@ export function ComplianceHeatmap() {
         </div>
 
         {/* Search Box */}
-        <div className="relative min-w-[200px]">
+        <div className="relative min-w-[220px]">
           <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant pointer-events-none select-none z-10" translate="no">
             search
           </span>
           <input
             type="text"
-            placeholder={isHi ? "आईडी, दुकान या क्षेत्र खोजें..." : "Search Pune ID, Shop, Kothrud..."}
+            placeholder={isHi ? "आईडी, दुकान या क्षेत्र खोजें..." : "Search Scale ID, Shop, Area..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full text-xs pl-8 pr-3 py-1.5 bg-surface-container border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary truncate"
@@ -710,98 +631,117 @@ export function ComplianceHeatmap() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-[580px]">
         {/* Leaflet Map Visual Canvas */}
         <div className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm relative flex flex-col">
-          {/* Quick Pune Places Jump Buttons Floating Bar */}
-          <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1 flex-wrap gap-y-1">
-            <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">{isHi ? "पुणे क्षेत्र:" : "Pune Places:"}</span>
-            <button
-              onClick={() => handleFocusMandi("KOTHRUD")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              {isHi ? "कोथरूड" : "Kothrud"}
-            </button>
-            <button
-              onClick={() => handleFocusMandi("BANER")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              {isHi ? "बानेर" : "Baner"}
-            </button>
-            <button
-              onClick={() => handleFocusMandi("HADAPSAR")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              {isHi ? "हडपसर" : "Hadapsar"}
-            </button>
-            <button
-              onClick={() => handleFocusMandi("AUNDH")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              {isHi ? "औंध" : "Aundh"}
-            </button>
-            <button
-              onClick={() => handleFocusMandi("SINHGAD")}
-              className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
-            >
-              {isHi ? "सिंहगढ़" : "Sinhgad"}
-            </button>
+          {/* Quick Hub Places Floating Bar */}
+          <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1 flex-wrap gap-y-1 max-w-[85%]">
+            <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">
+              {selectedCity === "PUNE" ? (isHi ? "पुणे क्षेत्र:" : "Pune Places:") : (isHi ? "मंडी क्षेत्र:" : "Mandi Hubs:")}
+            </span>
+            {activeHubs.slice(0, 5).map((hub) => (
+              <button
+                key={hub.id}
+                onClick={() => handleFocusMandi(hub)}
+                className="text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-slate-100 text-slate-700 transition-colors"
+              >
+                {hub.shortName}
+              </button>
+            ))}
+          </div>
+
+          {/* Map Controls: Reset View & Tile Style Switcher */}
+          <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1">
             <button
               onClick={handleResetView}
-              title="Reset Pune City Overview"
-              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors ml-1"
+              title={isHi ? "दृश्य रीसेट करें" : "Reset View"}
+              className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
             >
-              <span className="material-symbols-outlined text-sm">restart_alt</span>
+              <span className="material-symbols-outlined text-sm" translate="no">restart_alt</span>
+            </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+            <button
+              onClick={() => setBaseMapStyle("voyager")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "voyager" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              Voyager
+            </button>
+            <button
+              onClick={() => setBaseMapStyle("osm")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "osm" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              OSM
+            </button>
+            <button
+              onClick={() => setBaseMapStyle("satellite")}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "satellite" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              {isHi ? "उपग्रह" : "Satellite"}
+            </button>
+            <button
+              onClick={() => {
+                if (!mapApiKey.trim()) {
+                  setIsApiKeyModalOpen(true);
+                } else {
+                  setBaseMapStyle("mapbox");
+                }
+              }}
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "mapbox" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              }`}
+            >
+              Mapbox {mapApiKey ? "✓" : "🔑"}
             </button>
           </div>
 
-          {/* Real-Time Live Status Pill Overlay */}
-          <div className="absolute top-3 right-12 z-[400] bg-slate-900/90 text-white backdrop-blur-md border border-slate-700 rounded-xl px-3 py-1.5 shadow-md flex items-center gap-2 text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="font-semibold text-slate-200">Pune GIS Telemetry:</span>
-            <span className="font-mono text-emerald-400 font-bold">{lastTelemetryTimestamp}</span>
-          </div>
+          {/* The Leaflet Canvas Map */}
+          <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
 
-          {/* Map Container */}
-          <div ref={mapContainerRef} className="w-full h-full min-h-[550px] z-0 flex-1"></div>
-
-          {/* Map Legend Overlay */}
-          <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-2.5 shadow-md text-xs space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{isHi ? "अनुपालन कुंजी (पुणे)" : "Compliance Key (Pune)"}</span>
-            <div className="flex items-center space-x-2">
+          {/* Bottom Overlay Legend */}
+          <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-2.5 shadow-md flex items-center space-x-4 text-xs">
+            <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">
+              {isHi ? "अनुपालन कुंजी:" : "Compliance Key:"}
+            </span>
+            <div className="flex items-center space-x-1.5">
               <span className="w-3 h-3 rounded-full bg-red-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "अतिसंवेदनशील / छेड़छाड़ / छापा" : "Critical / Tampered / Raid"}</span>
+              <span className="text-slate-700 font-medium">{isHi ? "गंभीर / छेड़छाड़" : "Critical Tamper"}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-3 h-3 rounded-full bg-orange-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "मुहर वैधता समाप्त" : "Expired Stamping Overdue"}</span>
-            </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <span className="w-3 h-3 rounded-full bg-amber-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "कार्रवाई आवश्यक (30 दिन शेष)" : "Attention Required (30 Days)"}</span>
+              <span className="text-slate-700 font-medium">{isHi ? "मुहर समाप्त" : "Stamping Expired"}</span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <span className="w-3 h-3 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "प्रपत्र-क सत्यापित सक्रिय" : "Form-A Verified Active"}</span>
+              <span className="text-slate-700 font-medium">{isHi ? "सत्यापित सक्रिय" : "Verified Active"}</span>
             </div>
           </div>
         </div>
 
-        {/* Right Detail / Hotspot List Drawer */}
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col space-y-3 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2">
+        {/* Selected Scale Detail / Spatial Docket Sidebar */}
+        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
             <div>
               <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-primary">analytics</span>
-                <span>{isHi ? "पुणे मंडी डॉकेट" : "Pune Mandi Docket"}</span>
+                <span className="material-symbols-outlined text-sm text-primary" translate="no">analytics</span>
+                <span>{selectedCity === "PUNE" ? (isHi ? "पुणे मंडी डॉकेट" : "Pune Mandi Docket") : (isHi ? "स्थानिक डॉकेट" : "Spatial Docket")}</span>
               </h3>
-              <p className="text-[11px] text-on-surface-variant">{isHi ? `${filteredInstruments.length} भू-स्थानिक तराजू प्रदर्शित` : `Showing ${filteredInstruments.length} geocoded scales`}</p>
+              <p className="text-[11px] text-on-surface-variant">
+                {isHi ? `${filteredInstruments.length} भू-स्थानिक तराजू प्रदर्शित` : `Showing ${filteredInstruments.length} geocoded scales`}
+              </p>
             </div>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface-container text-on-surface-variant border border-outline-variant/30">
-              {isHi ? "लाइव पुणे समन्वय" : "Live Pune Sync"}
+              {isHi ? "लाइव समन्वय" : "Live Sync"}
             </span>
           </div>
 
-          {/* Selected Instrument Inspector Card */}
+          {/* Selected Instrument Detail Card */}
           {selectedInstrument ? (
-            <div className="bg-primary-container/10 border border-primary/20 rounded-xl p-3.5 space-y-2">
+            <div className="bg-surface-container p-3.5 rounded-xl border border-primary/30 space-y-2 animate-in fade-in zoom-in duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold text-primary">{selectedInstrument.digitalInstrumentId}</span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
@@ -835,8 +775,8 @@ export function ComplianceHeatmap() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "वैधता तिथि" : "Valid Until"}</span>
-                  <span className="font-semibold text-on-surface">{selectedInstrument.validUntil || (isHi ? "अनिर्धारित" : "Not Set")}</span>
+                  <span className="text-on-surface-variant/70 text-[10px] block">{isHi ? "विश्वास स्कोर" : "Trust Score"}</span>
+                  <span className="font-extrabold text-primary">{selectedInstrument.trustScore}%</span>
                 </div>
               </div>
 
@@ -844,147 +784,131 @@ export function ComplianceHeatmap() {
                 <a
                   href={`/qr/${encodeURIComponent(selectedInstrument.digitalInstrumentId)}`}
                   target="_blank"
-                  className="flex-1 text-center py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold transition-colors"
+                  className="flex-1 text-center py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
                 >
                   {isHi ? "सार्वजनिक क्यूआर देखें" : "View Public QR"}
                 </a>
                 <button
                   onClick={() => setSelectedInstrument(null)}
-                  className="px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface-variant cursor-pointer"
+                  className="px-2.5 py-1.5 bg-surface-container-high text-on-surface text-xs font-semibold rounded-lg hover:bg-surface-container-highest transition-colors"
                 >
                   {isHi ? "बंद करें" : "Close"}
                 </button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="p-4 rounded-xl border border-dashed border-outline-variant/50 text-center text-on-surface-variant text-xs">
+              <span className="material-symbols-outlined text-2xl text-outline mb-1" translate="no">touch_app</span>
+              <p>{isHi ? "मानचित्र पर किसी भी मार्कर पर क्लिक करके उसका कानूनी सत्यापन विवरण देखें" : "Click any map marker to view statutory calibration dossier"}</p>
+            </div>
+          )}
 
-          {/* Scrollable list of filtered instruments */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[420px]">
-            {filteredInstruments.length === 0 ? (
-              <div className="text-center py-8 text-xs text-on-surface-variant">
-                <span className="material-symbols-outlined text-2xl text-on-surface-variant/50 mb-1 block">filter_alt_off</span>
-                {isHi ? "सक्रिय स्थानिक फ़िल्टर से कोई माप उपकरण मेल नहीं खाता।" : "No scales match the active spatial filters."}
+          {/* Quick List of Filtered Scales */}
+          <div className="flex-1 overflow-y-auto space-y-2 max-h-[360px] pr-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant block">
+              {isHi ? `सूचीबद्ध इकाइयाँ (${filteredInstruments.length})` : `Ranked Units (${filteredInstruments.length})`}
+            </span>
+            {filteredInstruments.slice(0, 15).map((inst) => (
+              <div
+                key={inst.id}
+                onClick={() => setSelectedInstrument(inst)}
+                className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                  selectedInstrument?.id === inst.id
+                    ? "bg-primary-container/20 border-primary shadow-xs"
+                    : "bg-surface-container/50 border-outline-variant/20 hover:border-outline-variant/60"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-on-surface">{inst.digitalInstrumentId}</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                    inst.priorityFlag === "CRITICAL"
+                      ? "bg-error/20 text-error"
+                      : inst.status === "EXPIRED"
+                      ? "bg-amber-500/20 text-amber-700"
+                      : "bg-emerald-500/20 text-emerald-700"
+                  }`}>
+                    {inst.riskScore}/100
+                  </span>
+                </div>
+                <p className="text-[11px] text-on-surface-variant font-medium mt-0.5 truncate">{inst.ownerName}</p>
+                <div className="flex items-center justify-between text-[10px] text-on-surface-variant/70 mt-1">
+                  <span className="truncate max-w-[150px]">{inst.ownerAddress || inst.jurisdictionCircle}</span>
+                  <span className="font-semibold">Trust: {inst.trustScore}%</span>
+                </div>
               </div>
-            ) : (
-              filteredInstruments.map((inst) => {
-                const isCrit = inst.priorityFlag === "CRITICAL" || inst.status === "SUSPENDED_TAMPERED" || inst.riskScore >= 70;
-                const isExp = inst.status === "EXPIRED" || (inst.validUntil && new Date(inst.validUntil) < new Date());
-                const instComplaints = complaints.filter(
-                  (c) => c.digitalInstrumentId === inst.digitalInstrumentId || c.instrumentId === inst.id
-                );
-
-                return (
-                  <div
-                    key={inst.id}
-                    onClick={() => setSelectedInstrument(inst)}
-                    className={`p-2.5 rounded-xl border transition-all cursor-pointer hover:border-primary/50 ${
-                      selectedInstrument?.id === inst.id
-                        ? "bg-primary-container/15 border-primary"
-                        : "bg-surface-container-lowest border-outline-variant/30 hover:bg-surface-container-low"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-on-surface">{inst.digitalInstrumentId}</span>
-                      <div className="flex items-center gap-1.5">
-                        {isCrit && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-error/15 text-error">
-                            {isHi ? "अतिसंवेदनशील" : "CRITICAL"}
-                          </span>
-                        )}
-                        {isExp && !isCrit && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700">
-                            {isHi ? "समाप्त" : "EXPIRED"}
-                          </span>
-                        )}
-                        {instComplaints.length > 0 && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-700">
-                            {instComplaints.length} {isHi ? "शिकायतें" : (instComplaints.length > 1 ? "Grievances" : "Grievance")}
-                          </span>
-                        )}
-                        <span className={`w-2 h-2 rounded-full ${isCrit ? "bg-red-600 animate-pulse" : isExp ? "bg-orange-500" : "bg-emerald-600"}`}></span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-on-surface-variant font-medium mt-0.5 truncate">{inst.ownerName}</p>
-                    <div className="flex items-center justify-between text-[10px] text-on-surface-variant/70 mt-1">
-                      <span>{inst.ownerAddress || inst.jurisdictionCircle}</span>
-                      <span className="font-semibold">Risk: {inst.riskScore}/100</span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Map API Key Configuration Modal */}
+      {/* Real-time Map API Key Configuration Modal */}
       {isApiKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 bg-primary/10 border-b border-primary/20 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined text-2xl">map</span>
-                <div>
-                  <h3 className="font-bold text-base text-on-surface">GIS Real-Time Map Key</h3>
-                  <p className="text-xs text-on-surface-variant">Connect Mapbox, MapTiler, or Geoapify</p>
-                </div>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl" translate="no">vpn_key</span>
+                <h3 className="font-bold text-sm text-on-surface">
+                  {isHi ? "मानचित्र एपीआई कुंजी कॉन्फ़िगरेशन" : "Map API Key Configuration"}
+                </h3>
               </div>
               <button
                 onClick={() => setIsApiKeyModalOpen(false)}
-                className="w-8 h-8 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface-variant"
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
+                <span className="material-symbols-outlined text-lg" translate="no">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveApiKey} className="p-5 space-y-4 text-xs">
-              <div className="p-3 bg-surface-container rounded-xl text-[11px] text-on-surface-variant leading-relaxed">
-                Enter your <strong>Mapbox Access Token</strong> (or MapTiler key). The map will immediately switch to live high-definition vector tiles. If left empty, the map runs on CartoDB / Esri Satellite zero-config streams.
-              </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              {isHi
+                ? "उच्च-रिज़ॉल्यूशन वेक्टर टाइल्स और वास्तविक समय उपग्रह दृश्य को सक्रिय करने के लिए अपनी Mapbox या MapTiler सार्वजनिक टोकन दर्ज करें।"
+                : "Enter your public Mapbox or MapTiler token to activate high-resolution dynamic vector tiles and real-time live satellite layers."}
+            </p>
 
+            <form onSubmit={handleSaveApiKey} className="space-y-3">
               <div>
-                <label className="block font-bold text-on-surface mb-1">
-                  API Key / Access Token:
+                <label className="text-xs font-semibold text-on-surface block mb-1">
+                  {isHi ? "मैपबॉक्स एक्सेस टोकन (pk.xxx):" : "Mapbox Access Token (pk.xxx):"}
                 </label>
                 <input
                   type="text"
                   value={tempApiKey}
                   onChange={(e) => setTempApiKey(e.target.value)}
-                  placeholder="pk.eyJ1IjoieW91ci11c2VyIi..."
-                  className="w-full px-3 py-2 border border-outline-variant rounded-xl bg-surface text-on-surface text-xs font-mono outline-none focus:border-primary"
+                  placeholder="pk.eyJ1IjoieW91ci11c2VybmFtZSI..."
+                  className="w-full text-xs p-2.5 bg-surface-container border border-outline-variant/50 rounded-xl text-on-surface font-mono focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setTempApiKey("");
                     setMapApiKey("");
-                    if (typeof window !== "undefined") localStorage.removeItem("metrica_map_api_key");
-                    setActiveLayerType("CARTO");
+                    if (typeof window !== "undefined") {
+                      localStorage.removeItem("metrica_map_api_key");
+                    }
+                    setBaseMapStyle("voyager");
                     setIsApiKeyModalOpen(false);
                   }}
-                  className="text-xs text-rose-600 hover:underline"
+                  className="px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 rounded-lg transition-colors"
                 >
-                  Clear Key (Use Default)
+                  {isHi ? "कुंजी हटाएं" : "Clear Key"}
                 </button>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsApiKeyModalOpen(false)}
-                    className="px-3 py-1.5 rounded-xl border border-outline-variant text-xs font-semibold text-on-surface"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-primary text-white text-xs font-bold shadow-xs hover:bg-primary/90"
-                  >
-                    Save & Stream
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApiKeyModalOpen(false)}
+                  className="px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface-container rounded-lg transition-colors"
+                >
+                  {isHi ? "रद्द करें" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-semibold bg-primary text-white hover:bg-primary/90 rounded-lg shadow-xs transition-colors"
+                >
+                  {isHi ? "सहेजें और कनेक्ट करें" : "Save & Connect"}
+                </button>
               </div>
             </form>
           </div>

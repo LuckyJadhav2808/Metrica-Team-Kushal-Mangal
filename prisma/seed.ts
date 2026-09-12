@@ -95,6 +95,74 @@ async function main() {
     },
   });
 
+  const officerMumbai1 = await prisma.user.upsert({
+    where: { email: "nitin.deshmukh.lmo@gov.in" },
+    update: {},
+    create: {
+      email: "nitin.deshmukh.lmo@gov.in",
+      passwordHash: defaultPasswordHash,
+      role: "LMO",
+      name: "Nitin Deshmukh",
+      designation: "Legal Metrology Officer (Grade-I)",
+      phone: "+91 98202 11223",
+      organizationName: "Vashi APMC Mega Terminal Hub",
+      jurisdictionCircle: "Navi Mumbai & Konkan Circle",
+      officerBadgeId: "LMO-MH-MUM-712",
+      avatarLetter: "N",
+    },
+  });
+
+  const officerMumbai2 = await prisma.user.upsert({
+    where: { email: "priya.kulkarni.lmo@gov.in" },
+    update: {},
+    create: {
+      email: "priya.kulkarni.lmo@gov.in",
+      passwordHash: defaultPasswordHash,
+      role: "LMO",
+      name: "Priya Kulkarni",
+      designation: "Senior Metrology Enforcement Inspector",
+      phone: "+91 98203 22334",
+      organizationName: "Crawford Market & South Mumbai Hub",
+      jurisdictionCircle: "South Mumbai District Circle",
+      officerBadgeId: "LMO-MH-MUM-805",
+      avatarLetter: "P",
+    },
+  });
+
+  const officerPune1 = await prisma.user.upsert({
+    where: { email: "sachin.patil.lmo@gov.in" },
+    update: {},
+    create: {
+      email: "sachin.patil.lmo@gov.in",
+      passwordHash: defaultPasswordHash,
+      role: "LMO",
+      name: "Sachin Patil",
+      designation: "Legal Metrology Officer (Grade-I)",
+      phone: "+91 98204 33445",
+      organizationName: "Gultekdi Market Yard APMC Hub",
+      jurisdictionCircle: "Pune Central Circle",
+      officerBadgeId: "LMO-MH-PUN-331",
+      avatarLetter: "S",
+    },
+  });
+
+  const officerPune2 = await prisma.user.upsert({
+    where: { email: "anita.more.lmo@gov.in" },
+    update: {},
+    create: {
+      email: "anita.more.lmo@gov.in",
+      passwordHash: defaultPasswordHash,
+      role: "LMO",
+      name: "Anita More",
+      designation: "Enforcement Inspector (Grade-II)",
+      phone: "+91 98205 44556",
+      organizationName: "Pimpri-Chinchwad & Bhosari MIDC Hub",
+      jurisdictionCircle: "Pimpri-Chinchwad Industrial Circle",
+      officerBadgeId: "LMO-MH-PUN-449",
+      avatarLetter: "A",
+    },
+  });
+
   const merchantUser = await prisma.user.upsert({
     where: { email: "ramesh.patel@greenvalley.in" },
     update: {},
@@ -108,6 +176,38 @@ async function main() {
       organizationName: "Green Valley Groceries",
       jurisdictionCircle: "Delhi North District Circle",
       avatarLetter: "P",
+    },
+  });
+
+  const merchantVashi = await prisma.user.upsert({
+    where: { email: "sanjay.shinde@vashitraders.in" },
+    update: {},
+    create: {
+      email: "sanjay.shinde@vashitraders.in",
+      passwordHash: defaultPasswordHash,
+      role: "OWNER",
+      name: "Sanjay Shinde",
+      designation: "Wholesale Licensee",
+      phone: "+91 98210 99887",
+      organizationName: "Vashi Agro Commodities Pvt Ltd",
+      jurisdictionCircle: "Navi Mumbai & Konkan Circle",
+      avatarLetter: "S",
+    },
+  });
+
+  const merchantPune = await prisma.user.upsert({
+    where: { email: "dnyaneshwar.kadam@marketyardpune.in" },
+    update: {},
+    create: {
+      email: "dnyaneshwar.kadam@marketyardpune.in",
+      passwordHash: defaultPasswordHash,
+      role: "OWNER",
+      name: "Dnyaneshwar Kadam",
+      designation: "Grain Commission Agent",
+      phone: "+91 98220 11223",
+      organizationName: "Shri Chhatrapati Grain Merchants",
+      jurisdictionCircle: "Pune Central Circle",
+      avatarLetter: "D",
     },
   });
 
@@ -894,7 +994,434 @@ async function main() {
     },
   });
 
-  console.log("Database seeded successfully with 16 interconnected Mandi scales, officers, applications, and complaints.");
+  // 6. Seed Mumbai MMR Commercial Instruments
+  console.log("Seeding Mumbai MMR commercial instruments...");
+
+  const instMum1 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM01" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM01",
+      serialNumber: "VSH-PLT-2025-410",
+      modelName: "Apex Heavy Duty Platform Scale (300kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 300.0,
+      minCapacity: 1.0,
+      verificationInterval: 0.05,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Sanjay Shinde",
+      ownerAddress: "Vashi Agro Commodities Pvt Ltd, Sector 19, Turbhe APMC, Navi Mumbai",
+      pincode: "400703",
+      jurisdictionCircle: "Navi Mumbai & Konkan Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 12,
+      trustScore: 92,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-02-15",
+      validUntil: "2026-12-31",
+      ownerId: merchantVashi.id,
+    },
+  });
+
+  const instMum2 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM02" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM02",
+      serialNumber: "VSH-GRN-2024-912",
+      modelName: "Apex Bulk Produce Platform Weigher (500kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 500.0,
+      minCapacity: 2.0,
+      verificationInterval: 0.1,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Navi Mumbai Grain Wholesalers Association",
+      ownerAddress: "Grain Terminal Bay 4, APMC Market 2, Vashi, Navi Mumbai",
+      pincode: "400703",
+      jurisdictionCircle: "Navi Mumbai & Konkan Circle",
+      status: "EXPIRED",
+      riskScore: 68,
+      trustScore: 42,
+      priorityFlag: "HIGH",
+      lastVerifiedAt: "2025-01-20",
+      validUntil: "2025-12-31",
+    },
+  });
+
+  const instMum3 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM03" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM03",
+      serialNumber: "CRW-ELC-2025-104",
+      modelName: "Apex Digital Retail Scale (Series 200)",
+      category: "ELECTRONIC_COUNTER_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 15.0,
+      minCapacity: 0.05,
+      verificationInterval: 0.002,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Farooq Merchant Provisions",
+      ownerAddress: "Stall 48-C, Central Hall, Crawford Market, South Mumbai",
+      pincode: "400001",
+      jurisdictionCircle: "South Mumbai District Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 8,
+      trustScore: 98,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-03-01",
+      validUntil: "2027-02-28",
+    },
+  });
+
+  const instMum4 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM04" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM04",
+      serialNumber: "KLB-BLN-2026-003",
+      modelName: "Precision Micro-Balance Hallmarking Scale",
+      category: "ELECTRONIC_COUNTER_SCALE",
+      accuracyClass: "CLASS_II",
+      nominalUnit: "G",
+      maxCapacity: 3000.0,
+      minCapacity: 0.1,
+      verificationInterval: 0.01,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Kalbadevi Bullion & Jewelry Refiners",
+      ownerAddress: "Shop 12, Zaveri Bazaar Lane, Kalbadevi, Mumbai",
+      pincode: "400001",
+      jurisdictionCircle: "South Mumbai District Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 5,
+      trustScore: 99,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-01-05",
+      validUntil: "2027-01-04",
+    },
+  });
+
+  const instMum5 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM05" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM05",
+      serialNumber: "DDR-FLW-2024-332",
+      modelName: "Apex Commercial Rapid Scale (Series 300)",
+      category: "ELECTRONIC_COUNTER_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 30.0,
+      minCapacity: 0.1,
+      verificationInterval: 0.005,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Dadar Wholesale Flower Traders",
+      ownerAddress: "Platform 2, Meenatai Thackeray Flower Mandi, Dadar West, Mumbai",
+      pincode: "400028",
+      jurisdictionCircle: "Central Mumbai District Circle",
+      status: "SUSPENDED_TAMPERED",
+      riskScore: 84,
+      trustScore: 21,
+      priorityFlag: "CRITICAL",
+      lastVerifiedAt: "2025-06-10",
+      validUntil: "2026-06-09",
+    },
+  });
+
+  const instMum6 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-MUM06" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-MUM06",
+      serialNumber: "ADH-LOG-2025-780",
+      modelName: "Apex Heavy Freight Industrial Weigher (2000kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 2000.0,
+      minCapacity: 5.0,
+      verificationInterval: 0.5,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Andheri Cargo Logistics & Parcel Depot",
+      ownerAddress: "Plot 88, Marol Industrial MIDC, Andheri East, Mumbai",
+      pincode: "400069",
+      jurisdictionCircle: "Mumbai Suburban Western Circle",
+      status: "EXPIRING_SOON",
+      riskScore: 52,
+      trustScore: 65,
+      priorityFlag: "HIGH",
+      lastVerifiedAt: "2025-09-18",
+      validUntil: "2026-09-17",
+    },
+  });
+
+  // 7. Seed Pune District Commercial Instruments
+  console.log("Seeding Pune District commercial instruments...");
+
+  const instPun1 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN01" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN01",
+      serialNumber: "GLT-VEG-2024-044",
+      modelName: "Apex High-Throughput Produce Scale (60kg)",
+      category: "ELECTRONIC_COUNTER_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 60.0,
+      minCapacity: 0.2,
+      verificationInterval: 0.01,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Pune Agro Trading Syndicate",
+      ownerAddress: "Shed 4, Gate 1, Shri Chhatrapati Shivaji Market Yard, Gultekdi, Pune",
+      pincode: "411037",
+      jurisdictionCircle: "Pune Central Circle",
+      status: "SUSPENDED_TAMPERED",
+      riskScore: 88,
+      trustScore: 19,
+      priorityFlag: "CRITICAL",
+      lastVerifiedAt: "2025-05-12",
+      validUntil: "2026-05-11",
+    },
+  });
+
+  const instPun2 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN02" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN02",
+      serialNumber: "GLT-GRN-2025-212",
+      modelName: "Apex Heavy Bag Platform Scale (150kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 150.0,
+      minCapacity: 0.5,
+      verificationInterval: 0.02,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Dnyaneshwar Kadam",
+      ownerAddress: "Shri Chhatrapati Grain Merchants, Gala 89, Market Yard, Gultekdi, Pune",
+      pincode: "411037",
+      jurisdictionCircle: "Pune Central Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 14,
+      trustScore: 91,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-02-10",
+      validUntil: "2027-02-09",
+      ownerId: merchantPune.id,
+    },
+  });
+
+  const instPun3 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN03" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN03",
+      serialNumber: "HDP-AGR-2024-601",
+      modelName: "Apex Bulk Agri Produce Weigher (500kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 500.0,
+      minCapacity: 2.0,
+      verificationInterval: 0.1,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Hadapsar Grain Commission Agency",
+      ownerAddress: "Shed B, Hadapsar Agro Produce Sub-Market, Pune-Solapur Road, Pune",
+      pincode: "411028",
+      jurisdictionCircle: "Pune East Circle",
+      status: "EXPIRED",
+      riskScore: 65,
+      trustScore: 48,
+      priorityFlag: "HIGH",
+      lastVerifiedAt: "2025-01-14",
+      validUntil: "2026-01-13",
+    },
+  });
+
+  const instPun4 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN04" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN04",
+      serialNumber: "BHS-WBR-2025-001",
+      modelName: "Apex Industrial Vehicle Weighbridge (50 Tonnes)",
+      category: "WEIGHBRIDGE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 50000.0,
+      minCapacity: 200.0,
+      verificationInterval: 10.0,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Bhosari MIDC Logistics Weighbridge Station",
+      ownerAddress: "Plot W-42, Telco Road, Bhosari Industrial Area, Pimpri-Chinchwad, Pune",
+      pincode: "411018",
+      jurisdictionCircle: "Pimpri-Chinchwad Industrial Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 16,
+      trustScore: 94,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-01-28",
+      validUntil: "2027-01-27",
+    },
+  });
+
+  const instPun5 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN05" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN05",
+      serialNumber: "PMP-ENG-2025-884",
+      modelName: "Apex Precision Assembly Scale (30kg)",
+      category: "ELECTRONIC_COUNTER_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 30.0,
+      minCapacity: 0.1,
+      verificationInterval: 0.005,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Pimpri Auto Precision Tooling Works",
+      ownerAddress: "Gate 3, PCMC Industrial Complex, Pimpri, Pune",
+      pincode: "411018",
+      jurisdictionCircle: "Pimpri-Chinchwad Industrial Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 22,
+      trustScore: 88,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2025-11-20",
+      validUntil: "2026-11-19",
+    },
+  });
+
+  const instPun6 = await prisma.instrument.upsert({
+    where: { digitalInstrumentId: "IND-MET-2026-PUN06" },
+    update: {},
+    create: {
+      digitalInstrumentId: "IND-MET-2026-PUN06",
+      serialNumber: "SWR-DRY-2025-331",
+      modelName: "Apex Sanitary Bulk Milk Platform (1000kg)",
+      category: "PLATFORM_SCALE",
+      accuracyClass: "CLASS_III",
+      nominalUnit: "KG",
+      maxCapacity: 1000.0,
+      minCapacity: 5.0,
+      verificationInterval: 0.2,
+      manufacturerName: "Apex Metrology Instruments India Ltd",
+      ownerName: "Katraj Dairy Farmers Cooperative Receiving Depot",
+      ownerAddress: "Pune-Satara Road, Swargate-Katraj Hub, Pune",
+      pincode: "411009",
+      jurisdictionCircle: "Pune South Circle",
+      status: "VERIFIED_ACTIVE",
+      riskScore: 11,
+      trustScore: 96,
+      priorityFlag: "LOW",
+      lastVerifiedAt: "2026-02-18",
+      validUntil: "2027-02-17",
+    },
+  });
+
+  // 8. Seed Applications & Complaints for Mumbai and Pune
+  console.log("Seeding Maharashtra verification applications and complaints...");
+
+  await prisma.verificationApplication.upsert({
+    where: { applicationNumber: "APP-2026-MUM101" },
+    update: {},
+    create: {
+      applicationNumber: "APP-2026-MUM101",
+      instrumentId: instMum2.id,
+      instrumentSerial: instMum2.serialNumber,
+      applicantName: "Navi Mumbai Grain Wholesalers Association",
+      applicantPhone: "+91 98200 44556",
+      type: "RE_VERIFICATION",
+      readinessScore: 89,
+      feeAmount: 750.0,
+      paymentRefNumber: "PAY-MH-2026-8801",
+      paymentStatus: "PAID",
+      assignedOfficerId: officerMumbai1.id,
+      assignedOfficerName: officerMumbai1.name,
+      scheduledDate: "2026-09-18",
+      scheduledSlot: "10:00 AM - 01:00 PM",
+      status: "IN_PROGRESS",
+    },
+  });
+
+  await prisma.verificationApplication.upsert({
+    where: { applicationNumber: "APP-2026-PUN101" },
+    update: {},
+    create: {
+      applicationNumber: "APP-2026-PUN101",
+      instrumentId: instPun3.id,
+      instrumentSerial: instPun3.serialNumber,
+      applicantName: "Hadapsar Grain Commission Agency",
+      applicantPhone: "+91 98221 88990",
+      type: "RE_VERIFICATION",
+      readinessScore: 78,
+      feeAmount: 600.0,
+      paymentRefNumber: "PAY-MH-2026-9912",
+      paymentStatus: "PAID",
+      assignedOfficerId: officerPune1.id,
+      assignedOfficerName: officerPune1.name,
+      scheduledDate: "2026-09-20",
+      scheduledSlot: "02:00 PM - 05:00 PM",
+      status: "IN_PROGRESS",
+    },
+  });
+
+  await prisma.complaint.upsert({
+    where: { complaintNumber: "CMP-2026-MUM01" },
+    update: {},
+    create: {
+      complaintNumber: "CMP-2026-MUM01",
+      instrumentId: instMum5.id,
+      digitalInstrumentId: instMum5.digitalInstrumentId,
+      category: "SHORT_WEIGHT",
+      description: "Counter scale at Dadar Flower Mandi Platform 2 shows 1kg rose bundle as 1.18kg during morning wholesale auction rush. Display unit flickers intermittently.",
+      complainantPhone: "+91 98205 77112",
+      severity: "CRITICAL",
+      status: "LOGGED",
+      impactOnRiskScore: 35,
+    },
+  });
+
+  await prisma.complaint.upsert({
+    where: { complaintNumber: "CMP-2026-PUN01" },
+    update: {},
+    create: {
+      complaintNumber: "CMP-2026-PUN01",
+      instrumentId: instPun1.id,
+      digitalInstrumentId: instPun1.digitalInstrumentId,
+      category: "SHORT_WEIGHT",
+      description: "Scale in Shed 4 Gultekdi Market Yard had a 300g calibration bias. Inspection revealed a magnet taped under the pan assembly.",
+      complainantPhone: "+91 98223 66554",
+      severity: "CRITICAL",
+      status: "LOGGED",
+      impactOnRiskScore: 40,
+    },
+  });
+
+  await prisma.complaint.upsert({
+    where: { complaintNumber: "CMP-2026-PUN02" },
+    update: {},
+    create: {
+      complaintNumber: "CMP-2026-PUN02",
+      instrumentId: instPun3.id,
+      digitalInstrumentId: instPun3.digitalInstrumentId,
+      category: "EXPIRED_CERTIFICATE",
+      description: "Platform weigher stamping expired over 8 months ago. Commercial trading continues without quarterly statutory re-verification.",
+      complainantPhone: "+91 98224 55443",
+      severity: "HIGH",
+      status: "LOGGED",
+      impactOnRiskScore: 20,
+    },
+  });
+
+  console.log("Database seeded successfully with 28 multi-city Mandi scales (Delhi, Mumbai, Pune), officers, applications, and complaints.");
 }
 
 main()

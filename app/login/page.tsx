@@ -795,7 +795,10 @@ export default function LoginPage() {
                         >
                           <option value="Delhi North District Circle">Delhi North District Circle</option>
                           <option value="Delhi Central Circle">Delhi Central Circle</option>
-                          <option value="Maharashtra Mumbai Circle">Maharashtra Mumbai Circle</option>
+                          <option value="Navi Mumbai & Konkan Circle">Navi Mumbai & Konkan Circle</option>
+                          <option value="South Mumbai District Circle">South Mumbai District Circle</option>
+                          <option value="Pune Central Circle">Pune Central Circle</option>
+                          <option value="Pimpri-Chinchwad Industrial Circle">Pimpri-Chinchwad Industrial Circle</option>
                           <option value="Karnataka Bangalore Circle">Karnataka Bangalore Circle</option>
                         </select>
                       </div>
