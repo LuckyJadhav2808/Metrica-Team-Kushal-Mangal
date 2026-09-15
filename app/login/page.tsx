@@ -245,14 +245,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col font-sans bg-background overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col font-sans bg-background lg:h-screen lg:overflow-hidden">
       {/* Top Tricolor Strip */}
       <div className="h-1 w-full bg-gradient-to-r from-[#FF9933] via-white to-[#138808] shrink-0" />
 
-      {/* Main 50 / 50 Split Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-4px)] overflow-hidden">
-        {/* LEFT PANE: Sovereign Brand & Trust Showcase (50% on Desktop) */}
-        <div className="lg:w-1/2 bg-[#002B5B] text-white p-6 lg:p-10 flex flex-col justify-between relative overflow-y-auto shrink-0">
+      {/* Main Responsive Split Layout */}
+      <div className="flex-1 flex flex-col lg:flex-row lg:h-[calc(100vh-4px)] overflow-y-auto lg:overflow-hidden">
+        {/* LEFT PANE: Sovereign Brand & Trust Showcase (50% on Desktop, Hidden on Mobile to prioritize Form) */}
+        <div className="hidden lg:flex lg:w-1/2 bg-[#002B5B] text-white p-6 lg:p-10 flex-col justify-between relative overflow-y-auto shrink-0">
           {/* Subtle Background Elements */}
           <div className="absolute -right-24 -bottom-24 w-96 h-96 rounded-full bg-white/5 pointer-events-none" />
           <div className="absolute -left-12 -top-12 w-64 h-64 rounded-full bg-primary/20 pointer-events-none" />
@@ -359,9 +359,29 @@ export default function LoginPage() {
         </div>
 
         {/* RIGHT PANE: Unified 4-Role Authentication & Onboarding Engine */}
-        <div className="lg:w-1/2 flex flex-col h-full overflow-y-auto bg-surface p-6 lg:p-10">
-          {/* Top Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-outline-variant shrink-0">
+        <div className="w-full lg:w-1/2 flex flex-col h-full overflow-y-auto bg-surface p-4 sm:p-6 lg:p-10">
+          {/* Mobile Compact Branding Header */}
+          <div className="lg:hidden flex items-center justify-between p-3.5 mb-3 bg-[#002B5B] text-white rounded-2xl shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-2xs">
+                <span className="material-symbols-outlined text-lg">balance</span>
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Metrica</div>
+                <div className="text-[10px] text-white/70">DoCA Legal Metrology Gateway</div>
+              </div>
+            </div>
+            <Link
+              href="/"
+              className="text-[11px] px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium flex items-center gap-1 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">public</span>
+              <span>Citizen</span>
+            </Link>
+          </div>
+
+          {/* Top Header (Desktop) */}
+          <div className="hidden lg:flex items-center justify-between pb-3 border-b border-outline-variant shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                 <span className="material-symbols-outlined text-sm">shield</span>
