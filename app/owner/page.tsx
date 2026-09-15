@@ -6,10 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { InstitutionalNavigation } from "@/components/navigation";
 import { InstitutionalHeader } from "@/components/header";
 import { useMetrica } from "@/lib/store";
-import { Instrument, InstrumentCategory } from "@/lib/types";
+import { Instrument, InstrumentCategory, VerificationApplication } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { FormADocument } from "@/components/form-a-document";
+import { BharatkoshPaymentModal } from "@/components/bharatkosh-payment-modal";
 
 function OwnerDashboardContent() {
   const { instruments, applications, certificates, addInstrument, submitApplication, payApplicationFee, currentUser } = useMetrica();
@@ -30,6 +31,21 @@ function OwnerDashboardContent() {
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [selectedInst, setSelectedInst] = useState<Instrument | null>(null);
   const [selectedCertForPrint, setSelectedCertForPrint] = useState<any>(null);
+
+  // Bharatkosh NTRP Payment Modal State
+  const [bharatkoshApp, setBharatkoshApp] = useState<VerificationApplication | null>(null);
+  const [isBharatkoshOpen, setIsBharatkoshOpen] = useState(false);
+  const [bharatkoshInitialMode, setBharatkoshInitialMode] = useState<"PAYMENT" | "RECEIPT">("PAYMENT");
+
+  const handleBharatkoshSuccess = (paymentRef: string) => {
+    if (bharatkoshApp) {
+      payApplicationFee(bharatkoshApp.id, paymentRef);
+      toast.success(
+        "Statutory Fee Received via Bharatkosh",
+        `GAR-7 e-Challan ${paymentRef} issued. Case scheduled for District Circle verification.`
+      );
+    }
+  };
 
   // Form states
   const [name, setName] = useState("");
@@ -85,14 +101,15 @@ function OwnerDashboardContent() {
       readinessScore: hasUploadedCert ? 100 : 75,
     });
 
-    payApplicationFee(app.id, "CHALLAN-" + Date.now().toString().slice(-6));
-
     toast.success(
       "Verification Application Filed (Form-1)",
-      `Application ${app.applicationNumber} submitted. Statutory verification fee paid under Bharatkosh e-Challan.`
+      `Application ${app.applicationNumber} registered. Complete statutory fee payment under Bharatkosh NTRP.`
     );
 
     setIsApplyOpen(false);
+    setBharatkoshApp(app);
+    setBharatkoshInitialMode("PAYMENT");
+    setIsBharatkoshOpen(true);
     setActiveTab("applications");
   };
 
@@ -101,7 +118,7 @@ function OwnerDashboardContent() {
       <InstitutionalNavigation activeSection={activeTab} role="OWNER" />
 
       {/* Main Content Area */}
-      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0 screen-only-view">
+      <main className="flex-1 md:ml-[260px] flex flex-col h-full overflow-hidden bg-background min-w-0 screen-only-view pt-16 md:pt-0">
         <InstitutionalHeader title="Merchant & Owner Workspace" />
 
         {/* Executive Sub-Section Header Tier */}
@@ -382,8 +399,35 @@ function OwnerDashboardContent() {
                           <td className="p-3">
                             <span className="font-bold text-emerald-700">{app.readinessScore}%</span>
                           </td>
-                          <td className="p-3 font-mono text-[11px] text-on-surface-variant">
-                            {app.paymentRefNumber || "PAID-CHALLAN"}
+                          <td className="p-3">
+                            {app.paymentStatus === "PAID" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBharatkoshApp(app);
+                                  setBharatkoshInitialMode("RECEIPT");
+                                  setIsBharatkoshOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-mono hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
+                                title="Click to view official Bharatkosh GAR-7 Treasury Receipt"
+                              >
+                                <span className="material-symbols-outlined text-xs text-emerald-700">receipt_long</span>
+                                <span>{app.paymentRefNumber || "CHALLAN-BK"}</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBharatkoshApp(app);
+                                  setBharatkoshInitialMode("PAYMENT");
+                                  setIsBharatkoshOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 text-[11px] font-bold hover:bg-amber-100 transition-all cursor-pointer shadow-2xs animate-pulse"
+                              >
+                                <span className="material-symbols-outlined text-xs text-amber-700">payments</span>
+                                <span>Pay ₹590</span>
+                              </button>
+                            )}
                           </td>
                           <td className="p-3 text-on-surface">
                             {app.scheduledDate ? `${app.scheduledDate} (${app.scheduledSlot})` : "Awaiting Officer"}
@@ -706,6 +750,15 @@ function OwnerDashboardContent() {
           />
         </div>
       )}
+
+      {/* Bharatkosh Non-Tax Receipt Portal (NTRP) Statutory e-Challan Modal */}
+      <BharatkoshPaymentModal
+        isOpen={isBharatkoshOpen}
+        onClose={() => setIsBharatkoshOpen(false)}
+        application={bharatkoshApp}
+        initialMode={bharatkoshInitialMode}
+        onPaymentSuccess={handleBharatkoshSuccess}
+      />
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default function ManufacturerDashboard() {
       <InstitutionalNavigation activeSection="manufacturer" role="MANUFACTURER" />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0 pt-16 md:pt-0">
         <InstitutionalHeader title="Manufacturer & Importer Portal" />
 
         {/* Title & Action Strip */}

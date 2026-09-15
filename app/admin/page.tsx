@@ -10,7 +10,6 @@ import { VerificationApplication, Complaint, Instrument } from "@/lib/types";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { ComplianceHeatmap } from "@/components/compliance-heatmap";
-import { FraudNetworkGraph } from "@/components/fraud-network-graph";
 import { useI18n } from "@/lib/i18n";
 
 interface CircleOfficerItem {
@@ -55,6 +54,8 @@ function AdminCommandCenterContent() {
     complaints,
     officers,
     commissionOfficer,
+    updateOfficer,
+    deleteOfficer,
     assignOfficer,
     updateComplaintStatus,
     dispatchRaidForComplaint,
@@ -64,8 +65,8 @@ function AdminCommandCenterContent() {
   const isHi = language === "hi";
   const toast = useToast();
 
-  // Active view tab state: DASHBOARD | ASSIGNMENTS | FLAGS | COMPLAINTS | WORKLOAD | HEATMAP | NETWORK_GRAPH
-  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "ASSIGNMENTS" | "FLAGS" | "COMPLAINTS" | "WORKLOAD" | "HEATMAP" | "NETWORK_GRAPH">("DASHBOARD");
+  // Active view tab state: DASHBOARD | ASSIGNMENTS | FLAGS | COMPLAINTS | WORKLOAD | HEATMAP
+  const [activeTab, setActiveTab] = useState<"DASHBOARD" | "ASSIGNMENTS" | "FLAGS" | "COMPLAINTS" | "WORKLOAD" | "HEATMAP">("DASHBOARD");
 
   // Sync tab with URL parameters from sidebar links
   useEffect(() => {
@@ -79,8 +80,6 @@ function AdminCommandCenterContent() {
       setActiveTab("WORKLOAD");
     } else if (viewParam === "heatmap") {
       setActiveTab("HEATMAP");
-    } else if (viewParam === "network-graph") {
-      setActiveTab("NETWORK_GRAPH");
     } else {
       setActiveTab("DASHBOARD");
     }
@@ -102,40 +101,154 @@ function AdminCommandCenterContent() {
   const [selectedComplaintForRaid, setSelectedComplaintForRaid] = useState<Complaint | null>(null);
   const [selectedComplaintForResolve, setSelectedComplaintForResolve] = useState<Complaint | null>(null);
 
-  // Commission New Officer Modal State
-  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
-  const [newOfficerName, setNewOfficerName] = useState("");
-  const [newOfficerEmail, setNewOfficerEmail] = useState("");
-  const [newOfficerCircle, setNewOfficerCircle] = useState("Delhi West District Circle");
-  const [newOfficerHub, setNewOfficerHub] = useState("Najafgarh & Punjabi Bagh APMC Hub");
-  const [newOfficerDesignation, setNewOfficerDesignation] = useState("Legal Metrology Inspector (Grade-I)");
-  const [newOfficerBadge, setNewOfficerBadge] = useState("LMO-DL-W-604");
-  const [newOfficerPhone, setNewOfficerPhone] = useState("+91 98110 55443");
-  const [newOfficerPassword, setNewOfficerPassword] = useState("GovPass@2026");
-  const [isCommissioning, setIsCommissioning] = useState(false);
-  const [commissionSuccessMemo, setCommissionSuccessMemo] = useState<any>(null);
+  // Officer CRUD State
+  const [isOfficerModalOpen, setIsOfficerModalOpen] = useState(false);
+  const [officerModalMode, setOfficerModalMode] = useState<"COMMISSION" | "EDIT" | "RESET_PASSWORD">("COMMISSION");
+  const [officerFormId, setOfficerFormId] = useState("");
+  const [officerFormName, setOfficerFormName] = useState("");
+  const [officerFormEmail, setOfficerFormEmail] = useState("");
+  const [officerFormCircle, setOfficerFormCircle] = useState("Delhi West District Circle");
+  const [officerFormHub, setOfficerFormHub] = useState("Najafgarh & Punjabi Bagh APMC Hub");
+  const [officerFormDesignation, setOfficerFormDesignation] = useState("Legal Metrology Inspector (Grade-I)");
+  const [officerFormBadge, setOfficerFormBadge] = useState("LMO-DL-W-604");
+  const [officerFormPhone, setOfficerFormPhone] = useState("+91 98110 55443");
+  const [officerFormPassword, setOfficerFormPassword] = useState("GovPass@2026");
+  const [isOfficerSubmitting, setIsOfficerSubmitting] = useState(false);
+  const [issuedCredentialsMemo, setIssuedCredentialsMemo] = useState<{
+    title: string;
+    name: string;
+    email: string;
+    password?: string;
+    badge: string;
+    circle: string;
+    designation: string;
+  } | null>(null);
 
-  const handleCommissionSubmit = async (e: React.FormEvent) => {
+  // Decommission Officer State
+  const [decommissionTarget, setDecommissionTarget] = useState<CircleOfficerItem | null>(null);
+  const [isDecommissioning, setIsDecommissioning] = useState(false);
+
+  const openCommissionModal = () => {
+    setOfficerModalMode("COMMISSION");
+    setOfficerFormId("");
+    setOfficerFormName("");
+    setOfficerFormEmail("");
+    setOfficerFormCircle("Delhi West District Circle");
+    setOfficerFormHub("Najafgarh & Punjabi Bagh APMC Hub");
+    setOfficerFormDesignation("Legal Metrology Inspector (Grade-I)");
+    setOfficerFormBadge(`LMO-DL-W-${Math.floor(100 + Math.random() * 900)}`);
+    setOfficerFormPhone("+91 98110 55443");
+    setOfficerFormPassword("GovPass@2026");
+    setIsOfficerModalOpen(true);
+  };
+
+  const openEditOfficerModal = (officer: CircleOfficerItem) => {
+    setOfficerModalMode("EDIT");
+    setOfficerFormId(officer.id);
+    setOfficerFormName(officer.name);
+    setOfficerFormEmail(officer.email || "");
+    setOfficerFormCircle(officer.circle);
+    setOfficerFormHub(officer.hub);
+    setOfficerFormDesignation(officer.designation);
+    setOfficerFormBadge(officer.badge);
+    setOfficerFormPhone(officer.phone || "");
+    setOfficerFormPassword("");
+    setIsOfficerModalOpen(true);
+  };
+
+  const openResetPasswordModal = (officer: CircleOfficerItem) => {
+    setOfficerModalMode("RESET_PASSWORD");
+    setOfficerFormId(officer.id);
+    setOfficerFormName(officer.name);
+    setOfficerFormEmail(officer.email || "");
+    setOfficerFormCircle(officer.circle);
+    setOfficerFormHub(officer.hub);
+    setOfficerFormDesignation(officer.designation);
+    setOfficerFormBadge(officer.badge);
+    setOfficerFormPhone(officer.phone || "");
+    setOfficerFormPassword(`Metrica@${Math.floor(1000 + Math.random() * 9000)}`);
+    setIsOfficerModalOpen(true);
+  };
+
+  const handleOfficerFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsCommissioning(true);
-    const res = await commissionOfficer({
-      name: newOfficerName,
-      email: newOfficerEmail,
-      jurisdictionCircle: newOfficerCircle,
-      organizationName: newOfficerHub,
-      designation: newOfficerDesignation,
-      officerBadgeId: newOfficerBadge,
-      phone: newOfficerPhone,
-      password: newOfficerPassword,
-    });
-    setIsCommissioning(false);
-    if (res.ok) {
-      setCommissionSuccessMemo(res);
-      toast.success("Officer Commissioned Successfully", `${newOfficerName} added to ${newOfficerCircle}.`);
-      setNewOfficerName("");
-      setNewOfficerEmail("");
+    setIsOfficerSubmitting(true);
+    if (officerModalMode === "COMMISSION") {
+      const res = await commissionOfficer({
+        name: officerFormName,
+        email: officerFormEmail,
+        jurisdictionCircle: officerFormCircle,
+        organizationName: officerFormHub,
+        designation: officerFormDesignation,
+        officerBadgeId: officerFormBadge,
+        phone: officerFormPhone,
+        password: officerFormPassword,
+      });
+      setIsOfficerSubmitting(false);
+      if (res.ok) {
+        setIssuedCredentialsMemo({
+          title: "Official Commissioning Dossier & Clearance Memo",
+          name: res.officer.name,
+          email: res.initialCredentials?.email || officerFormEmail,
+          password: res.initialCredentials?.password || officerFormPassword,
+          badge: res.officer.officerBadgeId,
+          circle: res.officer.jurisdictionCircle,
+          designation: res.officer.designation,
+        });
+        toast.success("Officer Commissioned Successfully", `${officerFormName} registered with ${officerFormCircle}.`);
+        setIsOfficerModalOpen(false);
+      } else {
+        toast.error("Commissioning Failed", res.error || "Could not register officer.");
+      }
     } else {
-      toast.error("Commissioning Failed", res.error || "Could not register officer.");
+      // EDIT or RESET_PASSWORD
+      const payload: any = {
+        id: officerFormId,
+        name: officerFormName,
+        email: officerFormEmail,
+        jurisdictionCircle: officerFormCircle,
+        organizationName: officerFormHub,
+        designation: officerFormDesignation,
+        officerBadgeId: officerFormBadge,
+        phone: officerFormPhone,
+      };
+      if (officerFormPassword && officerFormPassword.trim().length > 0) {
+        payload.password = officerFormPassword;
+      }
+      const res = await updateOfficer(payload);
+      setIsOfficerSubmitting(false);
+      if (res.ok) {
+        if (officerModalMode === "RESET_PASSWORD" || officerFormPassword) {
+          setIssuedCredentialsMemo({
+            title: "Officer Password Reset Confirmation Slip",
+            name: res.officer.name,
+            email: res.officer.email,
+            password: officerFormPassword,
+            badge: res.officer.officerBadgeId,
+            circle: res.officer.jurisdictionCircle,
+            designation: res.officer.designation,
+          });
+          toast.success("Password Updated", `New password set for officer ${officerFormName}.`);
+        } else {
+          toast.success("Officer Profile Updated", `Details updated for ${officerFormName}.`);
+        }
+        setIsOfficerModalOpen(false);
+      } else {
+        toast.error("Update Failed", res.error || "Could not update officer profile.");
+      }
+    }
+  };
+
+  const handleDecommissionOfficer = async () => {
+    if (!decommissionTarget) return;
+    setIsDecommissioning(true);
+    const res = await deleteOfficer(decommissionTarget.id);
+    setIsDecommissioning(false);
+    if (res.ok) {
+      toast.success("Officer Decommissioned", `${decommissionTarget.name} has been removed. Active caseload unassigned.`);
+      setDecommissionTarget(null);
+    } else {
+      toast.error("Decommission Failed", res.error || "Could not decommission officer.");
     }
   };
   const [resolutionText, setResolutionText] = useState("");
@@ -337,16 +450,12 @@ function AdminCommandCenterContent() {
     <div className="bg-surface h-screen flex overflow-hidden">
       {/* Dynamic Sidebar highlighting based on activeTab */}
       <InstitutionalNavigation
-        activeSection={
-          activeTab === "NETWORK_GRAPH"
-            ? "network-graph"
-            : activeTab.toLowerCase()
-        }
+        activeSection={activeTab.toLowerCase()}
         role="ADMIN"
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0 pt-16 md:pt-0">
         {/* Universal Top Header */}
         <InstitutionalHeader title={isHi ? "प्रशासक नियंत्रण कक्ष" : "Administrator Command Center"} />
 
@@ -487,38 +596,46 @@ function AdminCommandCenterContent() {
               </div>
 
               {/* Data Dense Table Section */}
+              {/* Data Dense Table / Mobile Card Section */}
               <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col shadow-sm">
-                <div className="p-4 border-b border-outline-variant bg-surface-container-low flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <h3 className="font-bold text-sm text-on-surface">
-                    {activeTab === "ASSIGNMENTS" ? "Unassigned Application Queue" : "Master Regulatory Case Queue"}
-                  </h3>
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="p-4 border-b border-outline-variant bg-surface-container-low flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-on-surface">
+                      {activeTab === "ASSIGNMENTS" ? "Unassigned Application Queue" : "Master Regulatory Case Queue"}
+                    </h3>
+                    <p className="text-[11px] text-on-surface-variant md:hidden">
+                      {filteredApps.length} active regulatory files found
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                     <div className="relative w-full sm:w-64">
                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">
                         search
                       </span>
                       <input
                         type="text"
+                        inputMode="search"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search ID or Owner..."
-                        className="w-full pl-9 pr-4 py-1.5 border border-outline-variant rounded-lg bg-surface text-xs text-on-surface outline-none focus:border-primary"
+                        placeholder="Search ID, Serial, or Owner..."
+                        className="w-full pl-9 pr-4 py-2 sm:py-1.5 border border-outline-variant rounded-lg bg-surface text-sm sm:text-xs text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                       />
                     </div>
 
                     <div className="flex gap-1.5 shrink-0">
                       <button
                         onClick={() => setActiveFilter("ALL")}
-                        className={`px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors ${
-                          activeFilter === "ALL" ? "bg-primary text-white border-primary" : "border-outline-variant text-on-surface hover:bg-surface"
+                        className={`flex-1 sm:flex-initial px-3.5 py-2 sm:py-1.5 border rounded-lg text-xs font-semibold transition-colors min-h-[38px] flex items-center justify-center cursor-pointer ${
+                          activeFilter === "ALL" ? "bg-primary text-white border-primary shadow-xs" : "border-outline-variant text-on-surface hover:bg-surface"
                         }`}
                       >
                         All ({applications.length})
                       </button>
                       <button
                         onClick={() => setActiveFilter("PENDING")}
-                        className={`px-3 py-1.5 border rounded-lg text-xs font-semibold transition-colors ${
-                          activeFilter === "PENDING" ? "bg-primary text-white border-primary" : "border-outline-variant text-on-surface hover:bg-surface"
+                        className={`flex-1 sm:flex-initial px-3.5 py-2 sm:py-1.5 border rounded-lg text-xs font-semibold transition-colors min-h-[38px] flex items-center justify-center cursor-pointer ${
+                          activeFilter === "PENDING" ? "bg-primary text-white border-primary shadow-xs" : "border-outline-variant text-on-surface hover:bg-surface"
                         }`}
                       >
                         Pending ({pendingCount})
@@ -527,54 +644,55 @@ function AdminCommandCenterContent() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  {filteredApps.length === 0 ? (
-                    <div className="p-12 text-center text-on-surface-variant">
-                      <div className="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center mx-auto mb-3 text-outline">
-                        <span className="material-symbols-outlined text-2xl">inbox</span>
-                      </div>
-                      <h4 className="font-bold text-sm text-on-surface">Queue is currently empty</h4>
-                      <p className="text-xs mt-1 mb-4 text-on-surface-variant max-w-sm mx-auto">
-                        New applications submitted by instrument owners will appear here for administrative oversight.
-                      </p>
-                      <button
-                        onClick={() => setIsNewCaseOpen(true)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span>
-                        Create Case File
-                      </button>
+                {filteredApps.length === 0 ? (
+                  <div className="p-10 text-center text-on-surface-variant">
+                    <div className="w-12 h-12 rounded-full bg-surface-container-low flex items-center justify-center mx-auto mb-3 text-outline">
+                      <span className="material-symbols-outlined text-2xl">inbox</span>
                     </div>
-                  ) : (
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-surface-container-low border-b border-outline-variant">
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Instrument ID</th>
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Owner & Mandi</th>
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Status</th>
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Risk Level</th>
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Expiry Date</th>
-                          <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px] text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-outline-variant">
-                        {filteredApps.map((app) => {
-                          const inst = instruments.find((i) => i.id === app.instrumentId);
-                          const isHighRisk = inst?.priorityFlag === "HIGH" || inst?.priorityFlag === "CRITICAL";
+                    <h4 className="font-bold text-sm text-on-surface">Queue is currently empty</h4>
+                    <p className="text-xs mt-1 mb-4 text-on-surface-variant max-w-sm mx-auto">
+                      New applications submitted by instrument owners will appear here for administrative oversight.
+                    </p>
+                    <button
+                      onClick={() => setIsNewCaseOpen(true)}
+                      className="inline-flex items-center gap-1 px-3.5 py-2 bg-primary text-white rounded-lg text-xs font-semibold shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      Create Case File
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* 1. MOBILE RESPONSIVE DOSSIER CARDS (< md) */}
+                    <div className="md:hidden divide-y divide-outline-variant/60 bg-surface">
+                      {filteredApps.map((app) => {
+                        const inst = instruments.find((i) => i.id === app.instrumentId);
+                        const isHighRisk = inst?.priorityFlag === "HIGH" || inst?.priorityFlag === "CRITICAL";
 
-                          return (
-                            <tr key={app.id} className="hover:bg-surface-container-low transition-colors">
-                              <td className="py-3 px-4 font-mono font-bold text-primary">
-                                {inst ? inst.digitalInstrumentId : app.applicationNumber}
-                                <span className="block text-[11px] text-on-surface-variant font-mono font-normal">
+                        return (
+                          <div key={app.id} className="p-4 space-y-2.5 hover:bg-surface-container-low/50 transition-colors">
+                            {/* Card Header: IDs & Status Badges */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="font-mono font-bold text-primary text-xs block">
+                                  {inst ? inst.digitalInstrumentId : app.applicationNumber}
+                                </span>
+                                <span className="text-[11px] text-on-surface-variant font-mono block">
                                   SN: {app.instrumentSerial}
                                 </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="font-semibold text-on-surface">{app.applicantName}</div>
-                                <div className="text-[11px] text-on-surface-variant">{app.jurisdictionCircle}</div>
-                              </td>
-                              <td className="py-3 px-4">
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isHighRisk ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-bold text-[10px]">
+                                    CRITICAL
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-[10px] border border-emerald-200">
+                                    LOW
+                                  </span>
+                                )}
+
                                 {app.status === "PASSED_CERTIFIED" ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
                                     VERIFIED
@@ -588,40 +706,123 @@ function AdminCommandCenterContent() {
                                     PENDING
                                   </span>
                                 )}
-                              </td>
-                              <td className="py-3 px-4">
-                                {isHighRisk ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container font-bold text-[10px]">
-                                    CRITICAL
+                              </div>
+                            </div>
+
+                            {/* Merchant & Mandi Information */}
+                            <div className="bg-surface-container-low/70 p-2.5 rounded-lg border border-outline-variant/60 text-xs">
+                              <div className="font-semibold text-on-surface">{app.applicantName}</div>
+                              <div className="text-[11px] text-on-surface-variant flex items-center gap-1 mt-0.5">
+                                <span className="material-symbols-outlined text-[14px] text-primary">location_on</span>
+                                <span>{app.jurisdictionCircle}</span>
+                              </div>
+                            </div>
+
+                            {/* Expiry & Action Row */}
+                            <div className="flex items-center justify-between pt-1 text-xs">
+                              <div className="text-[11px] text-on-surface-variant">
+                                <span className="text-outline">Expires: </span>
+                                <strong className="text-on-surface">{inst?.validUntil || "Pending Inspection"}</strong>
+                              </div>
+
+                              {app.status === "SCHEDULED" ? (
+                                <span className="text-[11px] text-outline italic bg-surface-container-high px-2.5 py-1 rounded-md">
+                                  Assigned ({app.assignedOfficerName?.split(" ")[0]})
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setSelectedAppForAssign(app)}
+                                  className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary-container shadow-xs active:scale-95 transition-all flex items-center gap-1 min-h-[36px] cursor-pointer"
+                                >
+                                  <span className="material-symbols-outlined text-sm">person_add</span>
+                                  <span>Assign</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 2. DESKTOP FULL TABULAR GRID (md+) */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-surface-container-low border-b border-outline-variant">
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Instrument ID</th>
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Owner & Mandi</th>
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Status</th>
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Risk Level</th>
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px]">Expiry Date</th>
+                            <th className="py-3 px-4 font-semibold text-on-surface-variant uppercase text-[11px] text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant">
+                          {filteredApps.map((app) => {
+                            const inst = instruments.find((i) => i.id === app.instrumentId);
+                            const isHighRisk = inst?.priorityFlag === "HIGH" || inst?.priorityFlag === "CRITICAL";
+
+                            return (
+                              <tr key={app.id} className="hover:bg-surface-container-low transition-colors">
+                                <td className="py-3 px-4 font-mono font-bold text-primary">
+                                  {inst ? inst.digitalInstrumentId : app.applicationNumber}
+                                  <span className="block text-[11px] text-on-surface-variant font-mono font-normal">
+                                    SN: {app.instrumentSerial}
                                   </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-[10px] border border-emerald-200">
-                                    LOW
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-on-surface-variant">
-                                {inst?.validUntil || "Inspection Pending"}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                {app.status === "SCHEDULED" ? (
-                                  <span className="text-[11px] text-outline italic">Assigned ({app.assignedOfficerName?.split(" ")[0]})</span>
-                                ) : (
-                                  <button
-                                    onClick={() => setSelectedAppForAssign(app)}
-                                    className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-container transition-all active:scale-95"
-                                  >
-                                    Assign
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold text-on-surface">{app.applicantName}</div>
+                                  <div className="text-[11px] text-on-surface-variant">{app.jurisdictionCircle}</div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  {app.status === "PASSED_CERTIFIED" ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                      VERIFIED
+                                    </span>
+                                  ) : app.status === "SCHEDULED" ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px]">
+                                      SCHEDULED
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px]">
+                                      PENDING
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {isHighRisk ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container font-bold text-[10px]">
+                                      CRITICAL
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-[10px] border border-emerald-200">
+                                      LOW
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-on-surface-variant">
+                                  {inst?.validUntil || "Inspection Pending"}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  {app.status === "SCHEDULED" ? (
+                                    <span className="text-[11px] text-outline italic">Assigned ({app.assignedOfficerName?.split(" ")[0]})</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => setSelectedAppForAssign(app)}
+                                      className="px-3 py-1 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-container transition-all active:scale-95"
+                                    >
+                                      Assign
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -1036,7 +1237,7 @@ function AdminCommandCenterContent() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsCommissionModalOpen(true)}
+                    onClick={openCommissionModal}
                     className="px-3.5 py-2 bg-primary text-white rounded-xl font-bold text-xs hover:bg-primary-container shadow-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
                   >
                     <span className="material-symbols-outlined text-base">person_add</span>
@@ -1063,7 +1264,7 @@ function AdminCommandCenterContent() {
                     return (
                       <div
                         key={officer.id}
-                        className="bg-surface border border-outline-variant rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:border-primary/40 transition-all"
+                        className="bg-surface border border-outline-variant rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:border-primary/40 transition-all group relative"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-3">
@@ -1076,16 +1277,46 @@ function AdminCommandCenterContent() {
                                 <span className="text-[10px] text-outline font-medium">{officer.designation}</span>
                               </div>
                             </div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ${
                               isOverloaded ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"
                             }`}>
                               {isOverloaded ? "High Load" : "Available"}
                             </span>
                           </div>
 
+                          {/* Quick Officer Admin Controls Toolbar */}
+                          <div className="flex items-center gap-1.5 mb-2.5 p-1.5 bg-surface-container-low rounded-xl border border-outline-variant/60 justify-end">
+                            <span className="text-[10px] font-mono text-outline mr-auto px-1">ID: {officer.badge}</span>
+                            <button
+                              type="button"
+                              onClick={() => openEditOfficerModal(officer)}
+                              title="Edit Officer Profile & Circle"
+                              className="p-1 text-slate-600 hover:text-primary hover:bg-surface rounded-lg transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openResetPasswordModal(officer)}
+                              title="Reset Login Password & Issue Credentials"
+                              className="p-1 text-slate-600 hover:text-amber-600 hover:bg-surface rounded-lg transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">key</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDecommissionTarget(officer)}
+                              title="Decommission Officer"
+                              className="p-1 text-slate-600 hover:text-error hover:bg-surface rounded-lg transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">person_remove</span>
+                            </button>
+                          </div>
+
                           <div className="text-[11px] text-on-surface-variant bg-surface-container-low p-2.5 rounded-xl border border-outline-variant/60 mb-3 space-y-1">
                             <div><strong>Jurisdiction:</strong> {officer.circle}</div>
                             <div className="text-[10px] text-outline truncate"><strong>Primary Mandi:</strong> {officer.hub}</div>
+                            {officer.email && <div className="text-[10px] text-primary/80 truncate"><strong>Email:</strong> {officer.email}</div>}
                             <div className="text-[10px] text-secondary font-mono"><strong>Traceable Kit:</strong> {officer.kitId}</div>
                           </div>
 
@@ -1124,7 +1355,7 @@ function AdminCommandCenterContent() {
                                 toast.info("No Unassigned Cases", "All pending applications in the queue are currently assigned.");
                               }
                             }}
-                            className="flex-1 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-container transition-all text-center shadow-2xs"
+                            className="flex-1 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-container transition-all text-center shadow-2xs cursor-pointer"
                           >
                             Assign Docket
                           </button>
@@ -1149,13 +1380,6 @@ function AdminCommandCenterContent() {
           {activeTab === "HEATMAP" && (
             <div className="h-full">
               <ComplianceHeatmap />
-            </div>
-          )}
-
-          {/* TAB 6: FRAUD RING NETWORK GRAPH (RADAR) */}
-          {activeTab === "NETWORK_GRAPH" && (
-            <div className="h-full">
-              <FraudNetworkGraph />
             </div>
           )}
         </div>
@@ -1497,206 +1721,366 @@ function AdminCommandCenterContent() {
         </Modal>
       )}
 
-      {/* Commission Circle Officer Modal */}
-      {isCommissionModalOpen && (
+      {/* Reusable Officer Modal: Commission, Edit Profile, or Reset Password */}
+      {isOfficerModalOpen && (
         <Modal
-          isOpen={isCommissionModalOpen}
-          onClose={() => {
-            setIsCommissionModalOpen(false);
-            setCommissionSuccessMemo(null);
-          }}
-          title="Commission Legal Metrology Officer (LMO)"
-          subtitle="Provision field enforcement officer credentials, official Badge ID, and jurisdiction circle"
+          isOpen={isOfficerModalOpen}
+          onClose={() => setIsOfficerModalOpen(false)}
+          title={
+            officerModalMode === "COMMISSION"
+              ? "Commission Legal Metrology Officer (LMO)"
+              : officerModalMode === "EDIT"
+              ? `Edit Officer Profile — ${officerFormName}`
+              : `Reset Login Credentials — ${officerFormName}`
+          }
+          subtitle={
+            officerModalMode === "COMMISSION"
+              ? "Provision field enforcement officer credentials, official Badge ID, and jurisdiction circle"
+              : officerModalMode === "EDIT"
+              ? "Modify circle assignment, APMC hub, phone number, and designation"
+              : "Generate a new secure login password and issue updated statutory credentials"
+          }
         >
-          {commissionSuccessMemo ? (
-            <div className="space-y-4 text-xs">
-              <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2 text-emerald-950">
-                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                  <span className="material-symbols-outlined text-emerald-700">verified</span>
-                  Officer Commissioned & Cleared
-                </div>
-                <p className="text-[11px] text-emerald-900 leading-relaxed">
-                  Official commissioning order has been registered in the Metrica State Inspectorate Registry. Hand over the credentials below to the officer.
-                </p>
-                <div className="bg-white p-3 rounded-xl border border-emerald-200 font-mono text-[11px] space-y-1 mt-2">
-                  <div><strong>Officer Name:</strong> {commissionSuccessMemo.officer.name}</div>
-                  <div><strong>Badge ID:</strong> {commissionSuccessMemo.officer.officerBadgeId}</div>
-                  <div><strong>Jurisdiction:</strong> {commissionSuccessMemo.officer.jurisdictionCircle}</div>
-                  <div><strong>Login Email:</strong> {commissionSuccessMemo.initialCredentials.email}</div>
-                  <div><strong>Initial Password:</strong> <span className="text-primary font-bold">{commissionSuccessMemo.initialCredentials.password}</span></div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCommissionModalOpen(false);
-                    setCommissionSuccessMemo(null);
-                  }}
-                  className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-container transition-all cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleCommissionSubmit} className="space-y-3.5 text-xs">
+          <form onSubmit={handleOfficerFormSubmit} className="space-y-3.5 text-xs">
+            {officerModalMode === "COMMISSION" && (
               <div className="flex items-center justify-between p-2.5 bg-slate-100 rounded-xl">
                 <span className="text-slate-600 text-[11px]">Evaluation Quick Test:</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setNewOfficerName("Suresh Menon");
-                    setNewOfficerEmail("suresh.menon.lmo@gov.in");
-                    setNewOfficerCircle("Delhi West District Circle");
-                    setNewOfficerHub("Najafgarh Mandi & Punjabi Bagh");
-                    setNewOfficerBadge("LMO-DL-W-604");
-                    setNewOfficerDesignation("Legal Metrology Inspector (Grade-I)");
-                    setNewOfficerPhone("+91 98110 55443");
-                    setNewOfficerPassword("GovPass@2026");
+                    setOfficerFormName("Suresh Menon");
+                    setOfficerFormEmail("suresh.menon.lmo@gov.in");
+                    setOfficerFormCircle("Delhi West District Circle");
+                    setOfficerFormHub("Najafgarh Mandi & Punjabi Bagh");
+                    setOfficerFormBadge("LMO-DL-W-604");
+                    setOfficerFormDesignation("Legal Metrology Inspector (Grade-I)");
+                    setOfficerFormPhone("+91 98110 55443");
+                    setOfficerFormPassword("GovPass@2026");
                   }}
                   className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-primary font-bold text-[11px] hover:bg-slate-50 cursor-pointer transition-all"
                 >
                   ⚡ Auto-Fill Sample Officer
                 </button>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Suresh Menon"
-                    value={newOfficerName}
-                    onChange={(e) => setNewOfficerName(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
-                  />
+            {officerModalMode !== "RESET_PASSWORD" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Suresh Menon"
+                      value={officerFormName}
+                      onChange={(e) => setOfficerFormName(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Official Gov Email *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. suresh.menon.lmo@gov.in"
+                      value={officerFormEmail}
+                      onChange={(e) => setOfficerFormEmail(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Official Gov Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="e.g. suresh.menon.lmo@gov.in"
-                    value={newOfficerEmail}
-                    onChange={(e) => setNewOfficerEmail(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Officer Badge ID *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. LMO-DL-W-604"
-                    value={newOfficerBadge}
-                    onChange={(e) => setNewOfficerBadge(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Officer Badge ID *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. LMO-DL-W-604"
+                      value={officerFormBadge}
+                      onChange={(e) => setOfficerFormBadge(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Designation</label>
+                    <select
+                      value={officerFormDesignation}
+                      onChange={(e) => setOfficerFormDesignation(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
+                    >
+                      <option value="Legal Metrology Inspector (Grade-I)">Legal Metrology Inspector (Grade-I)</option>
+                      <option value="Legal Metrology Officer (Grade-II)">Legal Metrology Officer (Grade-II)</option>
+                      <option value="Senior Metrology Enforcement Officer">Senior Metrology Enforcement Officer</option>
+                      <option value="Assistant Controller of Legal Metrology">Assistant Controller of Legal Metrology</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Designation</label>
-                  <select
-                    value={newOfficerDesignation}
-                    onChange={(e) => setNewOfficerDesignation(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
-                  >
-                    <option value="Legal Metrology Inspector (Grade-I)">Legal Metrology Inspector (Grade-I)</option>
-                    <option value="Legal Metrology Officer (Grade-II)">Legal Metrology Officer (Grade-II)</option>
-                    <option value="Senior Metrology Enforcement Officer">Senior Metrology Enforcement Officer</option>
-                    <option value="Assistant Controller of Legal Metrology">Assistant Controller of Legal Metrology</option>
-                  </select>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Jurisdiction Circle</label>
-                  <select
-                    value={newOfficerCircle}
-                    onChange={(e) => setNewOfficerCircle(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
-                  >
-                    <option value="Delhi North District Circle">Delhi North District Circle</option>
-                    <option value="Delhi Central District Circle">Delhi Central District Circle</option>
-                    <option value="Delhi East District Circle">Delhi East District Circle</option>
-                    <option value="Delhi South District Circle">Delhi South District Circle</option>
-                    <option value="Delhi West District Circle">Delhi West District Circle</option>
-                    <option value="Navi Mumbai & Konkan Circle">Navi Mumbai & Konkan Circle</option>
-                    <option value="South Mumbai District Circle">South Mumbai District Circle</option>
-                    <option value="Pune Central Circle">Pune Central Circle</option>
-                    <option value="Pimpri-Chinchwad Industrial Circle">Pimpri-Chinchwad Industrial Circle</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Jurisdiction Circle</label>
+                    <select
+                      value={officerFormCircle}
+                      onChange={(e) => setOfficerFormCircle(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-semibold"
+                    >
+                      <option value="Delhi North District Circle">Delhi North District Circle</option>
+                      <option value="Delhi Central District Circle">Delhi Central District Circle</option>
+                      <option value="Delhi East District Circle">Delhi East District Circle</option>
+                      <option value="Delhi South District Circle">Delhi South District Circle</option>
+                      <option value="Delhi West District Circle">Delhi West District Circle</option>
+                      <option value="Navi Mumbai & Konkan Circle">Navi Mumbai & Konkan Circle</option>
+                      <option value="South Mumbai District Circle">South Mumbai District Circle</option>
+                      <option value="Pune Central Circle">Pune Central Circle</option>
+                      <option value="Pimpri-Chinchwad Industrial Circle">Pimpri-Chinchwad Industrial Circle</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Assigned Mandi / Hub</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Najafgarh Mandi"
+                      value={officerFormHub}
+                      onChange={(e) => setOfficerFormHub(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Assigned Mandi / Hub</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Najafgarh Mandi"
-                    value={newOfficerHub}
-                    onChange={(e) => setNewOfficerHub(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
-                  <input
-                    type="text"
-                    placeholder="+91 98110 55443"
-                    value={newOfficerPhone}
-                    onChange={(e) => setNewOfficerPhone(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      placeholder="+91 98110 55443"
+                      value={officerFormPhone}
+                      onChange={(e) => setOfficerFormPhone(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary"
+                    />
+                  </div>
+                  {officerModalMode === "COMMISSION" && (
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Initial Password *</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          required
+                          value={officerFormPassword}
+                          onChange={(e) => setOfficerFormPassword(e.target.value)}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setOfficerFormPassword("Metrica@" + Math.floor(1000 + Math.random() * 9000))}
+                          className="px-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold text-slate-700 text-[10px] shrink-0 cursor-pointer"
+                          title="Generate Password"
+                        >
+                          🎲
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {officerModalMode === "EDIT" && (
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Update Password (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Leave blank to keep unchanged"
+                        value={officerFormPassword}
+                        onChange={(e) => setOfficerFormPassword(e.target.value)}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                      />
+                    </div>
+                  )}
                 </div>
+              </>
+            )}
+
+            {officerModalMode === "RESET_PASSWORD" && (
+              <div className="space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs">
+                  <div className="font-bold flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-amber-700 text-base">lock_reset</span>
+                    Resetting Credentials for {officerFormName}
+                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    Official Badge: <strong>{officerFormBadge}</strong> • Email: <strong>{officerFormEmail}</strong>
+                  </p>
+                </div>
+
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Initial Password *</label>
+                  <label className="block font-bold text-slate-700 mb-1">New Login Password *</label>
                   <div className="flex gap-1.5">
                     <input
                       type="text"
                       required
-                      value={newOfficerPassword}
-                      onChange={(e) => setNewOfficerPassword(e.target.value)}
-                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono"
+                      value={officerFormPassword}
+                      onChange={(e) => setOfficerFormPassword(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none focus:border-primary font-mono text-sm"
                     />
                     <button
                       type="button"
-                      onClick={() => setNewOfficerPassword("Metrica@" + Math.floor(1000 + Math.random() * 9000))}
-                      className="px-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold text-slate-700 text-[10px] shrink-0 cursor-pointer"
+                      onClick={() => setOfficerFormPassword("Metrica@" + Math.floor(1000 + Math.random() * 9000))}
+                      className="px-3 bg-slate-200 hover:bg-slate-300 rounded-xl font-bold text-slate-700 text-xs shrink-0 cursor-pointer"
                       title="Generate Password"
                     >
-                      🎲
+                      🎲 Generate
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Officer will use this temporary password to authenticate at <code>/login</code>.</p>
                 </div>
               </div>
+            )}
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsCommissionModalOpen(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCommissioning}
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-base">badge</span>
-                  <span>{isCommissioning ? "Commissioning..." : "Commission Officer & Issue Credentials"}</span>
-                </button>
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsOfficerModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isOfficerSubmitting}
+                className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">
+                  {officerModalMode === "COMMISSION" ? "badge" : officerModalMode === "EDIT" ? "save" : "lock_reset"}
+                </span>
+                <span>
+                  {isOfficerSubmitting
+                    ? "Saving..."
+                    : officerModalMode === "COMMISSION"
+                    ? "Commission Officer & Issue Credentials"
+                    : officerModalMode === "EDIT"
+                    ? "Update Officer Profile"
+                    : "Reset Password & Issue Slip"}
+                </span>
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Official Credentials Clearance Slip Modal */}
+      {issuedCredentialsMemo && (
+        <Modal
+          isOpen={!!issuedCredentialsMemo}
+          onClose={() => setIssuedCredentialsMemo(null)}
+          title={issuedCredentialsMemo.title}
+          subtitle="Official Legal Metrology Clearance & Credentials Issuance Slip"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-3 text-emerald-950">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <span className="material-symbols-outlined text-emerald-700">verified</span>
+                Statutory Clearance Issued
               </div>
-            </form>
-          )}
+              <p className="text-[11px] text-emerald-900 leading-relaxed">
+                Credentials successfully committed to the Metrica State Inspectorate Registry with immutable SHA-256 audit logs. Share the credentials below with the officer:
+              </p>
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 font-mono text-[11px] space-y-1.5 shadow-2xs">
+                <div className="flex justify-between border-b border-emerald-100 pb-1">
+                  <span className="text-slate-500 font-sans">Officer:</span>
+                  <span className="font-bold text-slate-800">{issuedCredentialsMemo.name} ({issuedCredentialsMemo.designation})</span>
+                </div>
+                <div className="flex justify-between border-b border-emerald-100 pb-1">
+                  <span className="text-slate-500 font-sans">Badge ID:</span>
+                  <span className="font-bold text-primary">{issuedCredentialsMemo.badge}</span>
+                </div>
+                <div className="flex justify-between border-b border-emerald-100 pb-1">
+                  <span className="text-slate-500 font-sans">Jurisdiction:</span>
+                  <span className="font-bold text-slate-800">{issuedCredentialsMemo.circle}</span>
+                </div>
+                <div className="flex justify-between border-b border-emerald-100 pb-1">
+                  <span className="text-slate-500 font-sans">Login Email:</span>
+                  <span className="font-bold text-slate-900">{issuedCredentialsMemo.email}</span>
+                </div>
+                {issuedCredentialsMemo.password && (
+                  <div className="flex justify-between pt-0.5">
+                    <span className="text-slate-500 font-sans">Password:</span>
+                    <span className="font-bold text-primary text-xs bg-primary/10 px-2 py-0.5 rounded">{issuedCredentialsMemo.password}</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1 border-t border-emerald-100 text-[10px] text-slate-500 font-sans">
+                  <span>Portal:</span>
+                  <span className="font-mono text-slate-700 font-semibold">/login</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const text = `METRICA STATUTORY OFFICER CREDENTIALS\nName: ${issuedCredentialsMemo.name}\nBadge ID: ${issuedCredentialsMemo.badge}\nCircle: ${issuedCredentialsMemo.circle}\nLogin Email: ${issuedCredentialsMemo.email}\nPassword: ${issuedCredentialsMemo.password || "(Unchanged)"}\nPortal: ${window.location.origin}/login`;
+                  navigator.clipboard.writeText(text);
+                  toast.success("Credentials Copied", "Copied to clipboard.");
+                }}
+                className="px-4 py-2 bg-surface border border-outline-variant hover:bg-surface-container font-bold text-on-surface rounded-xl flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <span className="material-symbols-outlined text-base">content_copy</span>
+                <span>Copy Credentials</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIssuedCredentialsMemo(null)}
+                className="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-container transition-all cursor-pointer shadow-xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Decommission Officer Confirmation Modal */}
+      {decommissionTarget && (
+        <Modal
+          isOpen={!!decommissionTarget}
+          onClose={() => setDecommissionTarget(null)}
+          title="Decommission Field Officer"
+          subtitle={`Are you sure you want to decommission ${decommissionTarget.name}?`}
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2 text-red-950">
+              <div className="flex items-center gap-2 text-error font-bold text-sm">
+                <span className="material-symbols-outlined">warning</span>
+                Statutory Decommissioning Notice
+              </div>
+              <p className="text-[11px] text-red-900 leading-relaxed">
+                Decommissioning officer <strong>{decommissionTarget.name}</strong> ({decommissionTarget.badge}) will revoke their institutional credentials. Any pending verification dockets assigned to this officer will be safely unassigned and returned to the district queue for redistribution.
+              </p>
+              <div className="bg-white p-2.5 rounded-lg border border-red-200 font-mono text-[11px] text-slate-800 space-y-1">
+                <div><strong>Officer:</strong> {decommissionTarget.name}</div>
+                <div><strong>Badge:</strong> {decommissionTarget.badge}</div>
+                <div><strong>Jurisdiction:</strong> {decommissionTarget.circle}</div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-outline-variant">
+              <button
+                type="button"
+                onClick={() => setDecommissionTarget(null)}
+                className="px-4 py-2 border border-outline-variant text-on-surface rounded-xl font-semibold hover:bg-surface-container cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDecommissioning}
+                onClick={handleDecommissionOfficer}
+                className="px-5 py-2.5 bg-error text-white rounded-xl font-bold hover:bg-red-700 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <span className="material-symbols-outlined text-base">person_remove</span>
+                <span>{isDecommissioning ? "Decommissioning..." : "Confirm Decommissioning"}</span>
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

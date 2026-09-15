@@ -170,6 +170,8 @@ interface MetricaContextType {
   auditLogs: AuditLog[];
   // Actions
   commissionOfficer: (data: any) => Promise<{ ok: boolean; officer?: any; initialCredentials?: any; error?: string }>;
+  updateOfficer: (data: any) => Promise<{ ok: boolean; officer?: any; passwordReset?: boolean; error?: string }>;
+  deleteOfficer: (id: string) => Promise<{ ok: boolean; message?: string; error?: string }>;
   addInstrument: (instrument: Omit<Instrument, "id" | "digitalInstrumentId" | "createdAt" | "riskScore" | "trustScore" | "priorityFlag">) => Instrument;
   claimInstrument: (serialNumber: string, ownerName: string, ownerAddress: string, pincode: string) => Instrument | null;
   submitApplication: (data: { instrumentId: string; type: VerificationApplication["type"]; applicantName: string; applicantPhone: string; readinessScore: number }) => VerificationApplication;
@@ -859,6 +861,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({
         applicationId,
         paymentStatus: "PAID",
+        paymentRefNumber: paymentRef,
       }),
     }).catch((err) => console.warn("Payment API sync notice:", err));
   };
@@ -945,6 +948,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         digitalSignatureHash: "HMAC-SHA256-" + Math.random().toString(36).substring(2, 15).toUpperCase(),
         signedByOfficerName: verificationData.officerName,
         qrPayloadUrl: `/qr/${inst?.digitalInstrumentId || verificationData.instrumentId}`,
+        geoCoordinates: verificationData.geoCoordinates || "28.7156° N, 77.1772° E (Azadpur APMC Mandi Hub)",
       };
 
       setCertificates((prev) => [newCert!, ...prev]);
@@ -1034,6 +1038,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         mpeTolerancePassed: verificationData.mpeTolerancePassed,
         observations: verificationData.observations,
         summaryNotes: verificationData.summaryNotes,
+        geoCoordinates: verificationData.geoCoordinates,
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -1295,6 +1300,42 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateOfficer = async (data: any) => {
+    try {
+      const res = await fetch("/api/officers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const resData = await res.json();
+      if (res.ok && resData.officer) {
+        setOfficers((prev) => prev.map((o) => (o.id === resData.officer.id ? resData.officer : o)));
+        await refreshDatabase();
+        return { ok: true, officer: resData.officer, passwordReset: resData.passwordReset };
+      }
+      return { ok: false, error: resData.error || "Failed to update officer profile" };
+    } catch (e: any) {
+      return { ok: false, error: e.message || "Network error" };
+    }
+  };
+
+  const deleteOfficer = async (id: string) => {
+    try {
+      const res = await fetch(`/api/officers?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const resData = await res.json();
+      if (res.ok) {
+        setOfficers((prev) => prev.filter((o) => o.id !== id));
+        await refreshDatabase();
+        return { ok: true, message: resData.message };
+      }
+      return { ok: false, error: resData.error || "Failed to decommission officer" };
+    } catch (e: any) {
+      return { ok: false, error: e.message || "Network error" };
+    }
+  };
+
   const clearAllData = () => {
     setInstruments([]);
     setApplications([]);
@@ -1327,6 +1368,8 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         notifications,
         auditLogs,
         commissionOfficer,
+        updateOfficer,
+        deleteOfficer,
         addInstrument,
         claimInstrument,
         submitApplication,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { RegisterInstrumentSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
   try {
@@ -37,28 +38,36 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const validationResult = RegisterInstrumentSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
     const {
       serialNumber,
       modelName,
       category,
-      accuracyClass = "CLASS_III",
-      nominalUnit = "KG",
-      maxCapacity = 30.0,
-      minCapacity = 0.1,
-      verificationInterval = 0.005,
-      manufacturerName = "Apex Metrology Ltd",
+      accuracyClass,
+      nominalUnit,
+      maxCapacity,
+      minCapacity,
+      verificationInterval,
+      manufacturerName,
       ownerId,
       ownerName,
       ownerAddress,
-      pincode = "110001",
-      jurisdictionCircle = "Delhi North District Circle",
-      status = "REGISTERED_PENDING_VERIFICATION",
-    } = body;
-
-    if (!serialNumber || !modelName) {
-      return NextResponse.json({ error: "Serial number and model name are required" }, { status: 400 });
-    }
+      pincode,
+      jurisdictionCircle,
+      status,
+    } = validationResult.data;
 
     // Generate unique Digital Instrument ID
     const randomHex = Math.floor(1000 + Math.random() * 9000).toString();
@@ -72,9 +81,9 @@ export async function POST(req: NextRequest) {
         category,
         accuracyClass,
         nominalUnit,
-        maxCapacity: parseFloat(maxCapacity) || 30.0,
-        minCapacity: parseFloat(minCapacity) || 0.1,
-        verificationInterval: parseFloat(verificationInterval) || 0.005,
+        maxCapacity: maxCapacity ?? 30.0,
+        minCapacity: minCapacity ?? 0.1,
+        verificationInterval: verificationInterval ?? 0.005,
         manufacturerName,
         ownerId,
         ownerName,

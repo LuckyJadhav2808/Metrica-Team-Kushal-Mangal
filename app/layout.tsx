@@ -29,6 +29,11 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         />
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          crossOrigin=""
+        />
       </head>
       <body className="bg-surface text-on-surface min-h-screen font-sans antialiased" suppressHydrationWarning>
         {/* Hidden Bridge for Dynamic Real-Time Neural Translation */}

@@ -142,8 +142,8 @@ export function ComplianceHeatmap() {
     return () => clearInterval(interval);
   }, [isRealTimeRadarActive]);
 
-  // Dynamic Tile Layer Switcher
-  const applyTileLayer = async (L: any, map: any, style: string, apiKey: string) => {
+  // Dynamic Tile Layer Switcher (100% Zero-Config / No API Key Required)
+  const applyTileLayer = async (L: any, map: any, style: string) => {
     if (tileLayerRef.current) {
       try {
         map.removeLayer(tileLayerRef.current);
@@ -154,6 +154,7 @@ export function ComplianceHeatmap() {
     let layer: any;
 
     if (style === "satellite") {
+      // High-Resolution Esri Satellite Imagery (100% Free / Zero Key)
       layer = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
@@ -161,17 +162,8 @@ export function ComplianceHeatmap() {
           maxZoom: 19,
         }
       );
-    } else if (style === "mapbox" && apiKey.trim()) {
-      layer = L.tileLayer(
-        `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${apiKey.trim()}`,
-        {
-          attribution: '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
-          tileSize: 512,
-          zoomOffset: -1,
-          maxZoom: 20,
-        }
-      );
     } else if (style === "esri_gray") {
+      // Clean Topographic / Canvas Gray (100% Free / Zero Key)
       layer = L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         {
@@ -180,20 +172,28 @@ export function ComplianceHeatmap() {
         }
       );
     } else if (style === "osm") {
-      layer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      // OpenStreetMap Standard Tile Servers (100% Free / Zero Key)
+      layer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        subdomains: ["a", "b", "c"],
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       });
     } else {
-      // Default: CartoDB Voyager
+      // Default: Clean CartoDB Voyager Tile Server (100% Free / Zero Key)
       layer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: ["a", "b", "c", "d"],
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
       });
     }
 
     layer.addTo(map);
     tileLayerRef.current = layer;
+
+    // Trigger map redraw so tiles snap into position immediately
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
   };
 
   // Load Leaflet dynamically on client mount
@@ -225,19 +225,32 @@ export function ComplianceHeatmap() {
 
         L.control.zoom({ position: "topright" }).addTo(map);
 
-        await applyTileLayer(L, map, baseMapStyle, mapApiKey);
+        await applyTileLayer(L, map, baseMapStyle);
 
         const markersLayer = L.layerGroup().addTo(map);
         mapInstanceRef.current = map;
         markersLayerRef.current = markersLayer;
         setIsLeafletReady(true);
+
+        // Crucial for mobile/responsive viewports: recalculate map container bounds
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 200);
       }
     }
 
     initLeaflet();
 
+    const handleWindowResize = () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    };
+    window.addEventListener("resize", handleWindowResize);
+
     return () => {
       isMounted = false;
+      window.removeEventListener("resize", handleWindowResize);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -245,13 +258,13 @@ export function ComplianceHeatmap() {
     };
   }, []);
 
-  // Update Tile Layer when style or API key changes
+  // Update Tile Layer when style changes
   useEffect(() => {
     if (!isLeafletReady || !mapInstanceRef.current) return;
     import("leaflet").then((L) => {
-      applyTileLayer(L, mapInstanceRef.current, baseMapStyle, mapApiKey);
+      applyTileLayer(L, mapInstanceRef.current, baseMapStyle);
     });
-  }, [baseMapStyle, mapApiKey, isLeafletReady]);
+  }, [baseMapStyle, isLeafletReady]);
 
   // Update map markers whenever filteredInstruments changes or city changes
   useEffect(() => {
@@ -588,17 +601,7 @@ export function ComplianceHeatmap() {
             </select>
           </div>
 
-          {/* API Key Modal Trigger */}
-          <button
-            onClick={() => setIsApiKeyModalOpen(true)}
-            className="px-2.5 py-1.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant/40 rounded-lg text-xs font-semibold text-on-surface flex items-center gap-1.5 transition-colors"
-            title="Configure Real-time Map API Key (Mapbox / MapTiler)"
-          >
-            <span className="material-symbols-outlined text-[15px] text-primary" translate="no">vpn_key</span>
-            <span>{mapApiKey ? (isHi ? "एपीआई कुंजी सक्रिय" : "API Key Configured") : (isHi ? "मानचित्र एपीआई कुंजी जोड़ें" : "Add Map API Key")}</span>
-          </button>
-
-          {/* Real-time Radar Pulse Toggle */}
+          {/* Live Radar Pulse Indicator */}
           <button
             onClick={() => setIsRealTimeRadarActive(!isRealTimeRadarActive)}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
@@ -628,11 +631,11 @@ export function ComplianceHeatmap() {
       </div>
 
       {/* Main Map Container & Quick Jump Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 min-h-[580px]">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
         {/* Leaflet Map Visual Canvas */}
-        <div className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm relative flex flex-col">
-          {/* Quick Hub Places Floating Bar */}
-          <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1 flex-wrap gap-y-1 max-w-[85%]">
+        <div className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm relative flex flex-col h-[450px] sm:h-[550px] lg:h-[620px]">
+          {/* Quick Hub Places Floating Bar (Visible on tablet & desktop) */}
+          <div className="hidden md:flex absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md items-center space-x-1 flex-wrap gap-y-1 max-w-[60%]">
             <span className="text-[10px] font-bold text-slate-500 px-2 uppercase tracking-wider">
               {selectedCity === "PUNE" ? (isHi ? "पुणे क्षेत्र:" : "Pune Places:") : (isHi ? "मंडी क्षेत्र:" : "Mandi Hubs:")}
             </span>
@@ -648,20 +651,20 @@ export function ComplianceHeatmap() {
           </div>
 
           {/* Map Controls: Reset View & Tile Style Switcher */}
-          <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1.5 shadow-md flex items-center space-x-1">
+          <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-1 shadow-md flex items-center space-x-1">
             <button
               onClick={handleResetView}
               title={isHi ? "दृश्य रीसेट करें" : "Reset View"}
-              className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+              className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
             >
-              <span className="material-symbols-outlined text-sm" translate="no">restart_alt</span>
+              <span className="material-symbols-outlined text-xs sm:text-sm" translate="no">restart_alt</span>
             </button>
 
-            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+            <div className="h-3.5 w-px bg-slate-200 mx-0.5"></div>
 
             <button
               onClick={() => setBaseMapStyle("voyager")}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+              className={`text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md transition-colors ${
                 baseMapStyle === "voyager" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
               }`}
             >
@@ -669,7 +672,7 @@ export function ComplianceHeatmap() {
             </button>
             <button
               onClick={() => setBaseMapStyle("osm")}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+              className={`text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md transition-colors ${
                 baseMapStyle === "osm" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
               }`}
             >
@@ -677,47 +680,41 @@ export function ComplianceHeatmap() {
             </button>
             <button
               onClick={() => setBaseMapStyle("satellite")}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
+              className={`text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md transition-colors ${
                 baseMapStyle === "satellite" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
               }`}
             >
               {isHi ? "उपग्रह" : "Satellite"}
             </button>
             <button
-              onClick={() => {
-                if (!mapApiKey.trim()) {
-                  setIsApiKeyModalOpen(true);
-                } else {
-                  setBaseMapStyle("mapbox");
-                }
-              }}
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md transition-colors ${
-                baseMapStyle === "mapbox" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
+              onClick={() => setBaseMapStyle("esri_gray")}
+              className={`text-[10px] sm:text-[11px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-md transition-colors ${
+                baseMapStyle === "esri_gray" ? "bg-primary text-white shadow-xs" : "hover:bg-slate-100 text-slate-700"
               }`}
             >
-              Mapbox {mapApiKey ? "✓" : "🔑"}
+              {isHi ? "भू-भाग" : "Terrain"}
             </button>
           </div>
 
           {/* The Leaflet Canvas Map */}
-          <div ref={mapContainerRef} className="w-full h-full min-h-[500px] z-0" />
+          <div ref={mapContainerRef} className="w-full h-full min-h-[420px] flex-1 z-0" />
 
           {/* Bottom Overlay Legend */}
-          <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-2.5 shadow-md flex items-center space-x-4 text-xs">
-            <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">
-              {isHi ? "अनुपालन कुंजी:" : "Compliance Key:"}
+          <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-outline-variant/40 rounded-xl p-2 shadow-md flex items-center flex-wrap gap-2 text-[10px] sm:text-xs">
+            <span className="font-bold text-slate-800 uppercase tracking-wider text-[9px] sm:text-[10px]">
+              {isHi ? "कुंजी:" : "Key:"}
             </span>
-            <div className="flex items-center space-x-1.5">
-              <span className="w-3 h-3 rounded-full bg-red-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "गंभीर / छेड़छाड़" : "Critical Tamper"}</span>
+            <div className="flex items-center space-x-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 border border-white shadow-xs"></span>
+              <span className="text-slate-700 font-medium">{isHi ? "गंभीर" : "Critical"}</span>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <span className="w-3 h-3 rounded-full bg-amber-500 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "मुहर समाप्त" : "Stamping Expired"}</span>
+            <div className="flex items-center space-x-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white shadow-xs"></span>
+              <span className="text-slate-700 font-medium">{isHi ? "समाप्त" : "Expired"}</span>
             </div>
-            <div className="flex items-center space-x-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
-              <span className="text-slate-700 font-medium">{isHi ? "सत्यापित सक्रिय" : "Verified Active"}</span>
+            <div className="flex items-center space-x-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-white shadow-xs"></span>
+              <span className="text-slate-700 font-medium">{isHi ? "सत्यापित" : "Verified"}</span>
             </div>
           </div>
         </div>

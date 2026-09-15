@@ -38,3 +38,6 @@ next-env.d.ts
 prisma/*.db
 prisma/*.db-journal
 prisma/*.sqlite
+
+# test & browser artifacts
+.playwright-mcp/

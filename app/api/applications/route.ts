@@ -113,6 +113,7 @@ export async function PATCH(req: NextRequest) {
     if (scheduledDate) updateData.scheduledDate = scheduledDate;
     if (scheduledSlot) updateData.scheduledSlot = scheduledSlot;
     if (body.paymentStatus) updateData.paymentStatus = body.paymentStatus;
+    if (body.paymentRefNumber) updateData.paymentRefNumber = body.paymentRefNumber;
     if (body.status) updateData.status = body.status;
     else if (officerId || scheduledDate) updateData.status = "SCHEDULED";
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { FileComplaintSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
@@ -15,19 +16,27 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const validationResult = FileComplaintSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation failed",
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
     const {
       digitalInstrumentId,
       instrumentId,
-      complaintType = "SHORT_WEIGHT",
+      complaintType,
       description,
-      complainantPhone = "+91 99000 11223",
-      severity = "MEDIUM",
-    } = body;
-
-    if (!description) {
-      return NextResponse.json({ error: "Description is required" }, { status: 400 });
-    }
+      complainantPhone,
+      severity,
+    } = validationResult.data;
 
     const complaintNumber = `CMP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 

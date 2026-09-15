@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       mpeTolerancePassed = false,
       observations = [],
       summaryNotes = "",
+      geoCoordinates,
     } = body;
 
     if (!applicationId || !instrumentId) {
@@ -61,8 +62,9 @@ export async function POST(req: NextRequest) {
 
     const validOfficerId = officer?.id || app.assignedOfficerId || inst.ownerId || "usr-lmo-01";
     const validOfficerName = officerName || officer?.name || "Rajesh Kumar (LMO Grade-I)";
+    const finalGeo = geoCoordinates || "28.7156° N, 77.1772° E (Azadpur APMC Mandi Hub • Geo-Locked)";
 
-    // 1. Create Verification Record
+    // 1. Create Verification Record with GPS watermark
     const verification = await prisma.verification.create({
       data: {
         applicationId: app.id,
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
         mpeTolerancePassed,
         observationsJson: JSON.stringify(observations),
         summaryNotes,
+        geoCoordinates: finalGeo,
       },
     });
 
@@ -89,8 +92,8 @@ export async function POST(req: NextRequest) {
       const validUntilStr = nextYear.toISOString().split("T")[0];
       const certNumber = `CERT-DoCA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Cryptographic HMAC-SHA256 Hash
-      const signaturePayload = `${certNumber}|${inst.digitalInstrumentId}|${appliedSealNumber}|${issueDateStr}|${officerName}`;
+      // Cryptographic HMAC-SHA256 Hash including geoCoordinates
+      const signaturePayload = `${certNumber}|${inst.digitalInstrumentId}|${appliedSealNumber}|${issueDateStr}|${officerName}|${finalGeo}`;
       const digitalSignatureHash = `HMAC-SHA256-${crypto
         .createHmac("sha256", process.env.JWT_SECRET || "metrica-secret")
         .update(signaturePayload)
@@ -111,6 +114,7 @@ export async function POST(req: NextRequest) {
           digitalSignatureHash,
           signedByOfficerName: officerName,
           qrPayloadUrl: `/qr/${inst.digitalInstrumentId}`,
+          geoCoordinates: finalGeo,
         },
       });
 

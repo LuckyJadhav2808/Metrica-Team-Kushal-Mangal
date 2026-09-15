@@ -62,6 +62,10 @@ model Instrument {
   verifications        Verification[]
   certificates         Certificate[]
   complaints           Complaint[]
+
+  @@index([jurisdictionCircle, status])
+  @@index([ownerId])
+  @@index([priorityFlag, riskScore])
 }
 
 model VerificationApplication {
@@ -88,6 +92,10 @@ model VerificationApplication {
   // Relations
   assignedOfficer      User?    @relation(fields: [assignedOfficerId], references: [id])
   verifications        Verification[]
+
+  @@index([assignedOfficerId, status])
+  @@index([instrumentId])
+  @@index([status])
 }
 
 model Verification {
@@ -106,10 +114,15 @@ model Verification {
   mpeTolerancePassed   Boolean  @default(false)
   observationsJson     String   // Serialized JSON of observation details
   summaryNotes         String?
+  geoCoordinates       String?  // Geolocation watermark (Lat, Long)
   createdAt            DateTime @default(now())
 
   // Relations
   certificates         Certificate[]
+
+  @@index([instrumentId])
+  @@index([applicationId])
+  @@index([officerId])
 }
 
 model Certificate {
@@ -127,7 +140,12 @@ model Certificate {
   digitalSignatureHash String   // HMAC-SHA256 hash
   signedByOfficerName  String
   qrPayloadUrl         String
+  geoCoordinates       String?  // Geolocation watermark (Lat, Long)
   createdAt            DateTime @default(now())
+
+  @@index([instrumentId])
+  @@index([digitalInstrumentId])
+  @@index([status])
 }
 
 model Complaint {
@@ -143,6 +161,10 @@ model Complaint {
   status               String   @default("LOGGED")
   impactOnRiskScore    Int      @default(25)
   createdAt            DateTime @default(now())
+
+  @@index([instrumentId])
+  @@index([digitalInstrumentId])
+  @@index([status])
 }
 
 model AuditLog {
@@ -154,4 +176,7 @@ model AuditLog {
   actorRole  String
   action     String
   details    String
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
 }

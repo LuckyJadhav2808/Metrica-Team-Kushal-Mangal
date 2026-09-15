@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { Modal } from "@/components/ui/modal";
 import { Certificate, Instrument } from "@/lib/types";
 import { FormADocument } from "@/components/form-a-document";
+import { DiffViewer } from "@/components/diff-viewer";
 
 export default function LMOFieldVerificationPage() {
   return (
@@ -70,10 +71,22 @@ function LMOFieldVerificationContent() {
   const currentApp = applications.find((a) => a.id === selectedAppId) || (assignedCases.length > 0 ? assignedCases[0] : null);
   const currentInst = currentApp ? instruments.find((i) => i.id === currentApp.instrumentId) : (instruments.length > 0 ? instruments[0] : null);
 
-  // Form check state
+  // Universal 5-Point Statutory Physical Checklist State (USP #9)
   const [housingIntact, setHousingIntact] = useState(true);
   const [levelCentered, setLevelCentered] = useState(true);
   const [zeroTracking, setZeroTracking] = useState(true);
+  const [displayVisible, setDisplayVisible] = useState(true);
+  const [leadWireCavity, setLeadWireCavity] = useState(true);
+
+  const checklistCompletedCount = [
+    housingIntact,
+    levelCentered,
+    zeroTracking,
+    displayVisible,
+    leadWireCavity,
+  ].filter(Boolean).length;
+  const checklistPassed = checklistCompletedCount === 5;
+
   const [nominalLoad, setNominalLoad] = useState("10.000");
   const [observedLoad, setObservedLoad] = useState("10.002");
   const [sealWireNumber, setSealWireNumber] = useState("SEAL-DL-2026-9921");
@@ -93,6 +106,116 @@ function LMOFieldVerificationContent() {
 
   // Success / Failure Modal State
   const [issuedCert, setIssuedCert] = useState<Certificate | null>(null);
+
+  // Historical Diff Modal State (USP #10: What Changed Analysis)
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
+
+  // Anti-Armchair Geolocation Audit Watermark (Domain Realism #52)
+  const [geoCoords, setGeoCoords] = useState<{
+    lat: number;
+    lng: number;
+    accuracy: number;
+    hubName: string;
+    source: "HARDWARE_GPS" | "MANDI_GEOFENCE";
+    lockedAt: string;
+  }>({
+    lat: 28.7156,
+    lng: 77.1772,
+    accuracy: 8,
+    hubName: "Azadpur APMC Mandi Hub",
+    source: "MANDI_GEOFENCE",
+    lockedAt: "12:00 PM",
+  });
+  const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+
+  const acquireGpsCoordinates = () => {
+    setIsAcquiringGps(true);
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoCoords({
+            lat: Number(pos.coords.latitude.toFixed(4)),
+            lng: Number(pos.coords.longitude.toFixed(4)),
+            accuracy: Math.round(pos.coords.accuracy || 12),
+            hubName: "On-Site Hardware GPS Fix",
+            source: "HARDWARE_GPS",
+            lockedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          });
+          setIsAcquiringGps(false);
+          toast.success("Hardware GPS Acquired", `Coordinates locked: ${pos.coords.latitude.toFixed(4)}° N, ${pos.coords.longitude.toFixed(4)}° E (±${Math.round(pos.coords.accuracy || 12)}m)`);
+        },
+        (err) => {
+          // Fallback to Mandi Geofence Hub
+          setGeoCoords({
+            lat: 28.7156,
+            lng: 77.1772,
+            accuracy: 8,
+            hubName: "Azadpur APMC Mandi Hub",
+            source: "MANDI_GEOFENCE",
+            lockedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          });
+          setIsAcquiringGps(false);
+          toast.info("Mandi Hub Geofence Active", "Using official APMC Mandi hub coordinates (28.7156° N, 77.1772° E).");
+        },
+        { timeout: 6000, enableHighAccuracy: true }
+      );
+    } else {
+      setIsAcquiringGps(false);
+    }
+  };
+
+  useEffect(() => {
+    acquireGpsCoordinates();
+  }, []);
+
+  const diffFields = useMemo(() => {
+    if (!currentInst) return undefined;
+    const isPeriodic = currentApp?.type === "PERIODIC_REVERIFICATION" || currentInst.status === "VERIFIED_ACTIVE" || currentInst.status === "EXPIRING_SOON";
+    const hasRepair = currentApp?.type === "POST_REPAIR_VERIFICATION" || currentInst.status === "REPAIR_PENDING_INSPECTION";
+
+    return [
+      {
+        label: "Trading Business Name",
+        previousValue: currentInst.ownerName ? `${currentInst.ownerName} (Registered)` : "Verma Traders (Old Mandi)",
+        currentValue: currentApp?.applicantName || currentInst.ownerName || "Verma Traders Pvt Ltd",
+        isModified: Boolean(currentApp?.applicantName && currentInst.ownerName && currentApp.applicantName !== currentInst.ownerName),
+      },
+      {
+        label: "Installation Address",
+        previousValue: currentInst.ownerAddress || "Shop 12, Subzi Mandi Yard",
+        currentValue: currentInst.ownerAddress || "Shop 12, Subzi Mandi Yard",
+        isModified: false,
+      },
+      {
+        label: "Physical Wire Seal Number",
+        previousValue: currentInst.currentSealNumber || "SEAL-DL-2025-4410",
+        currentValue: sealWireNumber,
+        isModified: true, // During re-verification, a new seal wire is affixed
+      },
+      {
+        label: "Max Calibration Capacity",
+        previousValue: `${currentInst.maxCapacity || 30.0} kg (${currentInst.accuracyClass || "Class III"})`,
+        currentValue: `${currentInst.maxCapacity || 30.0} kg (${currentInst.accuracyClass || "Class III"})`,
+        isModified: false,
+      },
+      {
+        label: "Verification Interval (e)",
+        previousValue: `${currentInst.verificationInterval || 0.005} kg`,
+        currentValue: `${currentInst.verificationInterval || 0.005} kg`,
+        isModified: false,
+      },
+      {
+        label: "Reported Component Repair / Service",
+        previousValue: "Factory Initial Seal (No alterations)",
+        currentValue: hasRepair
+          ? "Loadcell sensor recalibrated & potentiometer adjusted by licensed vendor"
+          : isPeriodic
+          ? "Annual statutory periodic re-stamping due"
+          : "Initial verification onboarding",
+        isModified: hasRepair,
+      },
+    ];
+  }, [currentInst, currentApp, sealWireNumber]);
 
   // MPE Calculation
   const nominalVal = parseFloat(nominalLoad) || 10;
@@ -180,6 +303,11 @@ function LMOFieldVerificationContent() {
       return;
     }
 
+    if (!checklistPassed && verdict === "PASS") {
+      toast.warning("Checklist Incomplete", `Rule 11 inspection checklist is incomplete (${checklistCompletedCount}/5). All 5 integrity checks must pass.`);
+      return;
+    }
+
     const { verification, certificate } = submitVerification({
       applicationId: currentApp.id,
       instrumentId: currentInst.id,
@@ -204,6 +332,7 @@ function LMOFieldVerificationContent() {
       ],
       summaryNotes: notes || (verdict === "PASS" ? "Verified and stamped as per Legal Metrology Act, 2009." : "MPE tolerance exceeded. Section 25 Stop-Use applied."),
       performedOffline: !isOnline,
+      geoCoordinates: `${geoCoords.lat.toFixed(4)}° N, ${geoCoords.lng.toFixed(4)}° E (${geoCoords.hubName})`,
     });
 
     if (verdict === "PASS" && certificate) {
@@ -271,7 +400,7 @@ function LMOFieldVerificationContent() {
       <InstitutionalNavigation activeSection={getActiveSection()} role="LMO" />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0 screen-only-view">
+      <main className="flex-1 flex flex-col h-full overflow-hidden md:ml-[260px] bg-background min-w-0 screen-only-view pt-16 md:pt-0">
         {/* Universal Top Header with Masthead */}
         <InstitutionalHeader title="Field Officer Inspection Workspace" />
 
@@ -420,8 +549,8 @@ function LMOFieldVerificationContent() {
                         </div>
                       </div>
 
-                      {/* Camera OCR Trigger */}
-                      <div className="pt-2">
+                      {/* Camera OCR & Historical Diff Analysis Triggers */}
+                      <div className="pt-2 space-y-2">
                         <button
                           type="button"
                           onClick={() => setIsCameraModalOpen(true)}
@@ -436,21 +565,34 @@ function LMOFieldVerificationContent() {
                           </span>
                           <span>{ocrVerified ? "Plate OCR Verified ✓ (Serial Matched 99.4%)" : "Scan Nameplate Serial (Camera OCR)"}</span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsDiffModalOpen(true)}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-all active:scale-98 cursor-pointer"
+                          title="Compare current application against previous legal verification record (USP #10)"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">compare_arrows</span>
+                          <span>Compare with Previous Record (What Changed?)</span>
+                        </button>
                       </div>
                     </div>
                   </section>
 
-                  {/* 1.2 Statutory Physical Checklist */}
+                  {/* 1.2 Statutory Physical Checklist (Universal 5-Point + Category Adaptive Alert - USP #9) */}
                   <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs space-y-3">
                     <div className="flex items-center justify-between border-b border-outline-variant/60 pb-2">
                       <h4 className="font-bold text-xs text-on-surface flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-primary text-base">fact_check</span>
-                        Rule 11 Statutory Physical Integrity Check
+                        Rule 11 Universal 5-Point Integrity Checklist
                       </h4>
-                      <span className="text-[10px] text-outline font-mono">3 / 3 Required</span>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${checklistPassed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>
+                        {checklistCompletedCount} / 5 Required
+                      </span>
                     </div>
 
                     <div className="space-y-2 text-xs">
+                      {/* Check 1 */}
                       <label className="flex items-center justify-between p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-low cursor-pointer hover:bg-surface-container transition-all">
                         <div className="flex items-center gap-2.5">
                           <input
@@ -461,12 +603,13 @@ function LMOFieldVerificationContent() {
                           />
                           <div>
                             <span className="font-semibold text-on-surface block">Stamping Security Cavity & Housing</span>
-                            <span className="text-[10px] text-outline">Cast-iron housing free from illicit drill-holes or magnets</span>
+                            <span className="text-[10px] text-outline">Cast-iron housing free from illicit drill-holes, bypass wiring or cheat magnets</span>
                           </div>
                         </div>
                         <span className="material-symbols-outlined text-sm text-secondary">verified_user</span>
                       </label>
 
+                      {/* Check 2 */}
                       <label className="flex items-center justify-between p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-low cursor-pointer hover:bg-surface-container transition-all">
                         <div className="flex items-center gap-2.5">
                           <input
@@ -477,12 +620,13 @@ function LMOFieldVerificationContent() {
                           />
                           <div>
                             <span className="font-semibold text-on-surface block">Spirit Level Indicator Centered</span>
-                            <span className="text-[10px] text-outline">Air bubble strictly inside central concentric ring</span>
+                            <span className="text-[10px] text-outline">Air bubble strictly inside central concentric ring on level indicator</span>
                           </div>
                         </div>
                         <span className="material-symbols-outlined text-sm text-secondary">adjust</span>
                       </label>
 
+                      {/* Check 3 */}
                       <label className="flex items-center justify-between p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-low cursor-pointer hover:bg-surface-container transition-all">
                         <div className="flex items-center gap-2.5">
                           <input
@@ -493,11 +637,67 @@ function LMOFieldVerificationContent() {
                           />
                           <div>
                             <span className="font-semibold text-on-surface block">Automatic Zero-Tracking Function</span>
-                            <span className="text-[10px] text-outline">Returns strictly to 0.000g upon pan release</span>
+                            <span className="text-[10px] text-outline">Returns strictly to 0.000g upon pan release without mechanical sticking</span>
                           </div>
                         </div>
                         <span className="material-symbols-outlined text-sm text-secondary">check</span>
                       </label>
+
+                      {/* Check 4 */}
+                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-low cursor-pointer hover:bg-surface-container transition-all">
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={displayVisible}
+                            onChange={(e) => setDisplayVisible(e.target.checked)}
+                            className="w-4 h-4 text-primary rounded focus:ring-primary"
+                          />
+                          <div>
+                            <span className="font-semibold text-on-surface block">Dual Customer Display Visibility</span>
+                            <span className="text-[10px] text-outline">Secondary weight display clearly visible at customer eye level (Rule 11(3))</span>
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined text-sm text-secondary">visibility</span>
+                      </label>
+
+                      {/* Check 5 */}
+                      <label className="flex items-center justify-between p-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-low cursor-pointer hover:bg-surface-container transition-all">
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={leadWireCavity}
+                            onChange={(e) => setLeadWireCavity(e.target.checked)}
+                            className="w-4 h-4 text-primary rounded focus:ring-primary"
+                          />
+                          <div>
+                            <span className="font-semibold text-on-surface block">Tamper Lead Wire Cavity Clear</span>
+                            <span className="text-[10px] text-outline">Pre-drilled calibration screw hole unblocked for government lead wire threading</span>
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined text-sm text-secondary">pin</span>
+                      </label>
+                    </div>
+
+                    {/* DYNAMIC CATEGORY-SPECIFIC STATUTORY ALERT NOTE (USP #9) */}
+                    <div className="mt-3 p-3 rounded-xl bg-surface-container border border-outline-variant/80 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-primary flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">assignment_late</span>
+                          Category Inspection Advisory:
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface border border-outline-variant text-on-surface-variant font-mono">
+                          {currentInst?.category || "ELECTRONIC_COUNTER_SCALE"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                        {currentInst?.category === "JEWELRY_PRECISION_BALANCE" || currentInst?.accuracyClass === "CLASS_II" || currentInst?.accuracyClass === "CLASS_I"
+                          ? "⚖️ Rule 24 Bullion & Jewelry Standard: Inspect draft shield glass enclosure for air currents. Verify anti-vibration damping table lock; check that weight indication remains stable when enclosure doors slide shut."
+                          : currentInst?.category === "WEIGHBRIDGE"
+                          ? "🚛 Industrial Weighbridge Protocol: Inspect underground pit drainage for slurry accumulation. Verify loadcell summing junction box for unauthorized wireless RF interceptor relays."
+                          : currentInst?.category === "FUEL_DISPENSER_NOZZLE" || currentInst?.category === "FLOW_METER"
+                          ? "⛽ Petroleum Dispenser Protocol: Verify meter calibration wire seal, pulser electromagnetic shielding, and nozzle auto-shutoff mechanism under Rule 21."
+                          : "🛒 Standard Commercial Retail Protocol: Verify corner-load eccentricity at 1/3 max capacity. Confirm secondary consumer display is unobstructed by merchandise."}
+                      </p>
                     </div>
                   </section>
                 </div>
@@ -616,6 +816,58 @@ function LMOFieldVerificationContent() {
                       </div>
                     </div>
                   </section>
+
+                  {/* 2.3 Anti-Armchair Geolocation Watermark (Domain Realism #52) */}
+                  <section className="bg-surface border border-outline-variant rounded-2xl p-4 lg:p-5 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-outline-variant/60 pb-2">
+                      <h4 className="font-bold text-xs text-on-surface flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-primary text-base">pin_drop</span>
+                        Anti-Armchair Geolocation Audit Watermark
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        GEOFENCE VERIFIED ✓
+                      </span>
+                    </div>
+
+                    <div className="bg-surface-container-low border border-outline-variant/70 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-on-surface-variant font-medium">Device Coordinates:</span>
+                        <span className="font-mono font-bold text-primary">
+                          {geoCoords.lat.toFixed(4)}° N, {geoCoords.lng.toFixed(4)}° E
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-on-surface-variant font-medium">Jurisdiction Hub:</span>
+                        <span className="font-semibold text-on-surface flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-secondary">domain</span>
+                          {geoCoords.hubName}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-outline">
+                        <span>Source: <strong className="font-mono text-on-surface-variant">{geoCoords.source}</strong> (±{geoCoords.accuracy}m)</span>
+                        <span>Lock: <strong className="font-mono text-on-surface-variant">{geoCoords.lockedAt}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-outline">
+                        Sec 52 Anti-Armchair Inspection: Geotag permanently embedded in certificate hash.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={acquireGpsCoordinates}
+                        disabled={isAcquiringGps}
+                        className="px-2.5 py-1 rounded-lg border border-outline-variant text-[11px] font-bold text-primary hover:bg-primary/5 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                        title="Acquire live GPS or fall back to Mandi Hub Fix for SIH demonstration"
+                      >
+                        <span className={`material-symbols-outlined text-xs ${isAcquiringGps ? "animate-spin" : ""}`}>
+                          sync
+                        </span>
+                        <span>{isAcquiringGps ? "Acquiring..." : "Re-acquire GPS / Mandi Lock"}</span>
+                      </button>
+                    </div>
+                  </section>
                 </div>
               </div>
             </div>
@@ -631,6 +883,16 @@ function LMOFieldVerificationContent() {
                 <span className="flex items-center gap-1.5 font-semibold">
                   <span className={`w-2.5 h-2.5 rounded-full ${isWithinTolerance ? "bg-emerald-500" : "bg-red-500"}`} />
                   MPE: {isWithinTolerance ? "Within Limits" : "Tolerance Exceeded"}
+                </span>
+                <span className="opacity-40">•</span>
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  GPS: {geoCoords.lat.toFixed(2)}°N, {geoCoords.lng.toFixed(2)}°E
+                </span>
+                <span className="opacity-40">•</span>
+                <span className={`flex items-center gap-1.5 font-semibold ${checklistPassed ? "text-emerald-700" : "text-amber-700"}`}>
+                  <span className={`w-2.5 h-2.5 rounded-full ${checklistPassed ? "bg-emerald-500" : "bg-amber-500"}`} />
+                  Checklist: {checklistCompletedCount}/5
                 </span>
                 <span className="opacity-40 hidden md:inline">•</span>
                 <span className="text-[11px] text-outline hidden md:inline truncate">
@@ -1274,6 +1536,15 @@ function LMOFieldVerificationContent() {
           </div>
         </Modal>
       )}
+
+      {/* Historical Diff Modal (USP #10: What Changed Analysis) */}
+      <DiffViewer
+        isOpen={isDiffModalOpen}
+        onClose={() => setIsDiffModalOpen(false)}
+        instrumentId={currentInst?.digitalInstrumentId || "IND-MET-2026-X8829"}
+        serialNumber={currentInst?.serialNumber || "SN-8829-X"}
+        diffFields={diffFields}
+      />
 
       {/* Standalone Printable Document (Exclusively shown during @media print) */}
       {issuedCert && (

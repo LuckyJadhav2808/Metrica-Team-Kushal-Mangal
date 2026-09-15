@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useMetrica } from "@/lib/store";
 import { Modal } from "@/components/ui/modal";
 import { FormADocument } from "@/components/form-a-document";
+import { MascotCompanion } from "@/components/mascot-companion";
 
 export default function PublicQRVerificationPage() {
   const params = useParams();
@@ -99,6 +100,67 @@ export default function PublicQRVerificationPage() {
     const diff = Math.ceil((new Date(validDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return diff;
   }, [cert, inst]);
+
+  // Anti-Cloning Geo-Anomaly Detector State (USP #4)
+  const [isSimulatedClone, setIsSimulatedClone] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+
+  // Auto-acquire user coordinates on mount if available
+  useEffect(() => {
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            name: "Live Device GPS",
+          });
+        },
+        () => {},
+        { timeout: 5000 }
+      );
+    }
+  }, []);
+
+  // Registered APMC coordinates for the scale
+  const registeredLocation = useMemo(() => {
+    if (inst?.jurisdictionCircle?.toLowerCase().includes("mumbai") || inst?.ownerAddress?.toLowerCase().includes("mumbai")) {
+      return { lat: 19.0760, lng: 72.8777, name: "Vashi APMC Yard, Navi Mumbai" };
+    }
+    if (inst?.jurisdictionCircle?.toLowerCase().includes("pune") || inst?.ownerAddress?.toLowerCase().includes("pune")) {
+      return { lat: 18.5204, lng: 73.8567, name: "Gultekdi Market Yard, Pune" };
+    }
+    return { lat: 28.7156, lng: 77.1772, name: "Azadpur APMC Market Yard, Delhi" };
+  }, [inst]);
+
+  // Active scanner location (supports 1-click evaluator simulation)
+  const scannerLocation = useMemo(() => {
+    if (isSimulatedClone) {
+      if (registeredLocation.name.includes("Delhi")) {
+        return { lat: 19.0760, lng: 72.8777, name: "Dadar Wholesale Mandi, Mumbai (Simulated)" };
+      }
+      return { lat: 28.7156, lng: 77.1772, name: "Azadpur Mandi, Delhi (Simulated)" };
+    }
+    return userLocation || { lat: registeredLocation.lat, lng: registeredLocation.lng, name: registeredLocation.name };
+  }, [isSimulatedClone, registeredLocation, userLocation]);
+
+  // Haversine Distance Calculation (Delta in km)
+  const distanceMismatchKm = useMemo(() => {
+    if (!scannerLocation || !registeredLocation) return 0;
+    const R = 6371; // Earth radius in km
+    const dLat = (scannerLocation.lat - registeredLocation.lat) * (Math.PI / 180);
+    const dLon = (scannerLocation.lng - registeredLocation.lng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(registeredLocation.lat * (Math.PI / 180)) *
+        Math.cos(scannerLocation.lat * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+  }, [scannerLocation, registeredLocation]);
+
+  const isCloneDetected = distanceMismatchKm > 50 || isSimulatedClone;
 
   // Citizen Complaint Modal State
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -317,6 +379,25 @@ export default function PublicQRVerificationPage() {
             >
               ⚖️ Sunshine Groceries (55201)
             </button>
+
+            {/* 1-Click Evaluator Clone Simulation Trigger (USP #4) */}
+            <button
+              type="button"
+              onClick={() => setIsSimulatedClone((prev) => !prev)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                isSimulatedClone
+                  ? "bg-rose-600 text-white border-rose-700 shadow-xs ring-2 ring-rose-400 animate-pulse"
+                  : "bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300"
+              }`}
+              title="Demonstrate USP #4: Delhi APMC scale simultaneously scanned 1,418 km away in Mumbai"
+            >
+              <span className="material-symbols-outlined text-[14px]">
+                {isSimulatedClone ? "cancel" : "fmd_bad"}
+              </span>
+              <span>
+                {isSimulatedClone ? "Deactivate Clone Simulation" : "🚨 Simulate Clone Scan (Delhi scale in Mumbai)"}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -324,7 +405,49 @@ export default function PublicQRVerificationPage() {
         {inst ? (
           <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden mb-6">
             {/* Status Sovereign Banner */}
-            {isSuspended ? (
+            {isCloneDetected ? (
+              <div className="bg-[#450a0a] bg-gradient-to-r from-[#450a0a] via-[#7f1d1d] to-[#450a0a] text-white p-5 sm:p-6 border-b-2 border-red-700 relative overflow-hidden ring-4 ring-rose-500/50 shadow-xl">
+                <div className="flex items-start gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-xl bg-red-600 flex items-center justify-center shrink-0 border-2 border-white/40 shadow-lg animate-pulse">
+                    <span className="material-symbols-outlined text-3xl text-white">fmd_bad</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 bg-black/60 px-2.5 py-0.5 rounded text-[11px] font-mono tracking-wide text-rose-200 border border-rose-400/40 uppercase">
+                      <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+                      <span className="font-bold text-rose-100">संदिग्ध प्रतिरूपण | COUNTERFEIT QR CLONE DETECTED</span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                      <span>अवैध प्रतिरूपित QR कोड (IMPOSSIBLE TRAVEL ANOMALY)</span>
+                    </h3>
+                    <p className="text-xs sm:text-sm text-rose-100 max-w-2xl leading-relaxed">
+                      This QR identity is registered exclusively to{" "}
+                      <strong className="text-white underline">{inst?.ownerName || "Authorized Merchant"}</strong> at{" "}
+                      <strong className="text-white">{registeredLocation.name}</strong>. Your current scanner GPS locates this transaction{" "}
+                      <strong className="text-amber-300 font-mono text-sm underline bg-black/40 px-1.5 py-0.5 rounded ml-1">
+                        {distanceMismatchKm} km away in {scannerLocation.name}
+                      </strong>.
+                    </p>
+                    <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                      <span className="px-3 py-1 rounded bg-black/70 text-xs font-mono font-bold text-amber-300 border border-rose-500/60 shadow-xs">
+                        🚨 Haversine Delta: {distanceMismatchKm} km (&gt;50 km threshold)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReportCategory("SUSPECTED_TAMPERING");
+                          setObservedDiscrepancy(`Impossible travel anomaly: Scale registered in ${registeredLocation.name} scanned in ${scannerLocation.name} (${distanceMismatchKm} km away)`);
+                          setIsReportOpen(true);
+                        }}
+                        className="px-3.5 py-1.5 bg-white hover:bg-rose-50 text-rose-950 rounded-lg text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer ring-2 ring-rose-400"
+                      >
+                        <span className="material-symbols-outlined text-sm text-rose-700">crisis_alert</span>
+                        Report Counterfeit Clone Scale
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : isSuspended ? (
               <div className="bg-gradient-to-r from-rose-700 via-red-600 to-rose-700 text-white p-5 border-b border-rose-800">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 border border-white/30">
@@ -402,158 +525,264 @@ export default function PublicQRVerificationPage() {
               </div>
             )}
 
-            {/* Official Verification Docket Body */}
-            <div className="p-6">
-              {/* Form-A Certificate Top Data Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6 border-b border-slate-200">
-                {/* Scale ID & Model */}
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Digital Metrology Identifier (QR ID)
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-lg font-mono font-bold text-slate-900">
-                        {inst.digitalInstrumentId}
-                      </span>
-                      <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                        UID
-                      </span>
+            {/* Official Verification Docket Body OR Fraud Quarantine Dossier */}
+            {isCloneDetected ? (
+              /* FRAUD QUARANTINE DOSSIER (Certificate Withheld) */
+              <div className="p-6 bg-rose-50/40 space-y-5">
+                {/* Certificate Withheld Notice */}
+                <div className="p-4.5 rounded-xl bg-rose-100/80 border-2 border-rose-300 text-rose-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-xl">block</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Equipment Model & Accuracy Class
-                    </span>
-                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
-                      {inst.modelName}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                        Class: <strong>{inst.accuracyClass || "CLASS_III"} (Commercial)</strong>
-                      </span>
-                      <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                        Capacity: <strong>{inst.maxCapacity || 30} {inst.nominalUnit || "KG"}</strong>
-                      </span>
+                    <div>
+                      <h4 className="text-sm font-black text-rose-950 uppercase tracking-tight flex items-center gap-1.5">
+                        <span>प्रमाण पत्र अवरुद्ध | FORM-A CERTIFICATE WITHHELD</span>
+                        <span className="bg-rose-700 text-white text-[10px] px-2 py-0.2 rounded font-mono font-bold">
+                          FRAUD QUARANTINE
+                        </span>
+                      </h4>
+                      <p className="text-xs text-rose-900 mt-0.5 leading-relaxed font-medium">
+                        The Legal Metrology verification certificate is <strong>STRICTLY WITHHELD</strong> for this physical device. Operating an unverified or cloned scale is a punishable offense under Section 25 of the Legal Metrology Act, 2009.
+                      </p>
                     </div>
-                  </div>
-
-                  <div>
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Serial Number & Manufacturer
-                    </span>
-                    <p className="text-xs font-mono text-slate-700 mt-0.5">
-                      SN: {inst.serialNumber}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {inst.manufacturerName || "Apex Metrology Ltd"}
-                    </p>
                   </div>
                 </div>
 
-                {/* Stamping Validity & Seal Security */}
-                <div className="space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                        Statutory Stamping Validity
+                {/* Forensic Spatial Discrepancy Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Legitimate Geofence */}
+                  <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-emerald-600 text-sm">verified_user</span>
+                        Registered Legitimate Geofence
                       </span>
-                      <p className="text-base font-bold text-slate-900 mt-0.5">
-                        {cert?.validUntil || inst.validUntil || "31 Dec 2026"}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Last Inspected: {cert?.issueDate || inst.lastVerifiedAt || "10 Jan 2026"}
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-1.5 py-0.5 rounded font-mono">
+                        ORIGINAL
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{inst.ownerName || "Ramesh Patel"}</p>
+                      <p className="text-xs text-slate-600">{registeredLocation.name}</p>
+                      <p className="text-[11px] font-mono text-slate-500 mt-1">
+                        GPS: {registeredLocation.lat.toFixed(4)}° N, {registeredLocation.lng.toFixed(4)}° E
                       </p>
                     </div>
-
-                    {daysRemaining !== null && (
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                          daysRemaining > 30
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : daysRemaining > 0
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-rose-50 text-rose-700 border-rose-200"
-                        }`}
-                      >
-                        {daysRemaining > 0 ? `${daysRemaining} days remaining` : "Expired"}
-                      </span>
-                    )}
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Physical Lead / Holographic Seal
-                    </span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="material-symbols-outlined text-[18px] text-indigo-600">lock</span>
-                      <span className="text-xs font-mono font-bold text-slate-900">
-                        {cert?.physicalSealNumber || inst.currentSealNumber || "DL-LM-884-2026-A"}
+                  {/* Intercepted Clone Scan Location */}
+                  <div className="p-4 rounded-xl bg-rose-50/70 border-2 border-rose-300 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-rose-200">
+                      <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-rose-600 text-sm">location_off</span>
+                        Intercepted Scanner GPS Location
                       </span>
-                      {isSuspended && (
-                        <span className="text-[10px] font-semibold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded">
-                          SEAL COMPROMISED
+                      <span className="text-[10px] bg-rose-600 text-white font-bold px-1.5 py-0.5 rounded font-mono">
+                        SUSPECT CLONE
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-rose-950">{scannerLocation.name}</p>
+                      <p className="text-xs text-rose-800">Current device scanning location</p>
+                      <p className="text-[11px] font-mono text-rose-700 mt-1 font-bold">
+                        GPS: {scannerLocation.lat.toFixed(4)}° N, {scannerLocation.lng.toFixed(4)}° E
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enforcement Actions Bar */}
+                <div className="pt-3 border-t border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-rose-800 font-medium">
+                    <span className="material-symbols-outlined text-rose-600 text-base">emergency</span>
+                    <span>LMO Flying Squad alert initiated automatically under Section 53.</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled
+                      className="px-3.5 py-2 bg-slate-200 text-slate-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed shadow-none"
+                      title="Certificate withheld due to fraud detection"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">lock</span>
+                      <span>Form-A Withheld</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportCategory("SUSPECTED_TAMPERING");
+                        setObservedDiscrepancy(`IMPOSSIBLE TRAVEL FRAUD: Scale registered in ${registeredLocation.name} scanned in ${scannerLocation.name} (${distanceMismatchKm} km distance anomaly)`);
+                        setIsReportOpen(true);
+                      }}
+                      className="flex-1 sm:flex-initial px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">crisis_alert</span>
+                      <span>Lodge Priority Enforcement Complaint</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Normal Verified / Standard Certificate Docket */
+              <div className="p-6">
+                {/* Form-A Certificate Top Data Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6 border-b border-slate-200">
+                  {/* Scale ID & Model */}
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Digital Metrology Identifier (QR ID)
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-lg font-mono font-bold text-slate-900">
+                          {inst.digitalInstrumentId}
+                        </span>
+                        <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                          UID
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Equipment Model & Accuracy Class
+                      </span>
+                      <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                        {inst.modelName}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Class: <strong>{inst.accuracyClass || "CLASS_III"} (Commercial)</strong>
+                        </span>
+                        <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Capacity: <strong>{inst.maxCapacity || 30} {inst.nominalUnit || "KG"}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Serial Number & Manufacturer
+                      </span>
+                      <p className="text-xs font-mono text-slate-700 mt-0.5">
+                        SN: {inst.serialNumber}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {inst.manufacturerName || "Apex Metrology Ltd"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stamping Validity & Seal Security */}
+                  <div className="space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                          Statutory Stamping Validity
+                        </span>
+                        <p className="text-base font-bold text-slate-900 mt-0.5">
+                          {cert?.validUntil || inst.validUntil || "31 Dec 2026"}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Last Inspected: {cert?.issueDate || inst.lastVerifiedAt || "10 Jan 2026"}
+                        </p>
+                      </div>
+
+                      {daysRemaining !== null && (
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                            daysRemaining > 30
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : daysRemaining > 0
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-rose-50 text-rose-700 border-rose-200"
+                          }`}
+                        >
+                          {daysRemaining > 0 ? `${daysRemaining} days remaining` : "Expired"}
                         </span>
                       )}
                     </div>
+
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Physical Lead / Holographic Seal
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="material-symbols-outlined text-[18px] text-indigo-600">lock</span>
+                        <span className="text-xs font-mono font-bold text-slate-900">
+                          {cert?.physicalSealNumber || inst.currentSealNumber || "DL-LM-884-2026-A"}
+                        </span>
+                        {isSuspended && (
+                          <span className="text-[10px] font-semibold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded">
+                            SEAL COMPROMISED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                        Licensed Merchant & APMC Yard
+                      </span>
+                      <p className="text-xs font-semibold text-slate-800 mt-0.5 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-slate-400">store</span>
+                        {inst.ownerName || "Ramesh Patel"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {inst.ownerAddress || "Stall 14-B, Azadpur Mandi, Delhi 110033"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Form-A Official Certificate Meta */}
+                <div className="pt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">Certificate No:</span>
+                      <span className="font-mono font-medium text-slate-900">
+                        {cert?.certificateNumber || `CERT-DoCA-2026-${inst.digitalInstrumentId.replace(/[^0-9]/g, "") || "9912"}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span>Inspecting Officer:</span>
+                      <span className="font-medium text-slate-700">
+                        {cert?.signedByOfficerName || "Rajesh Kumar (LMO-DL-N-884)"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                      <span className="material-symbols-outlined text-[14px] text-emerald-600">shield</span>
+                      <span>HMAC-SHA256 Cryptographically Sealed</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-mono bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 mt-1">
+                      <span className="material-symbols-outlined text-[14px] text-emerald-600">pin_drop</span>
+                      <span className="truncate">📍 Geotagged Stamping: {cert?.geoCoordinates || "28.7156° N, 77.1772° E (Azadpur APMC Mandi Hub)"}</span>
+                      <span className="text-[10px] font-bold text-emerald-800 ml-auto bg-emerald-200/70 px-1.5 py-0.5 rounded shrink-0">GEOFENCE LOCKED</span>
+                    </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Licensed Merchant & APMC Yard
-                    </span>
-                    <p className="text-xs font-semibold text-slate-800 mt-0.5 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px] text-slate-400">store</span>
-                      {inst.ownerName || "Ramesh Patel"}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {inst.ownerAddress || "Stall 14-B, Azadpur Mandi, Delhi 110033"}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewOpen(true)}
+                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">print</span>
+                      <span>Print Form-A</span>
+                    </button>
+                    <button
+                      onClick={() => setIsReportOpen(true)}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">report_problem</span>
+                      <span>Report Measurement Discrepancy</span>
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Form-A Official Certificate Meta */}
-              <div className="pt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">Certificate No:</span>
-                    <span className="font-mono font-medium text-slate-900">
-                      {cert?.certificateNumber || `CERT-DoCA-2026-${inst.digitalInstrumentId.replace(/[^0-9]/g, "") || "9912"}`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>Inspecting Officer:</span>
-                    <span className="font-medium text-slate-700">
-                      {cert?.signedByOfficerName || "Rajesh Kumar (LMO-DL-N-884)"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
-                    <span className="material-symbols-outlined text-[14px] text-emerald-600">shield</span>
-                    <span>HMAC-SHA256 Cryptographically Sealed</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPreviewOpen(true)}
-                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">print</span>
-                    <span>Print Form-A</span>
-                  </button>
-                  <button
-                    onClick={() => setIsReportOpen(true)}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">report_problem</span>
-                    <span>Report Measurement Discrepancy</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         ) : isSearchingDb ? (
           /* Live Regulatory Register Querying Pulse */
@@ -914,6 +1143,17 @@ export default function PublicQRVerificationPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Dynamic Legal Metrology Companion (MetriPrahari) with scale reaction */}
+      <MascotCompanion
+        scaleId={targetLookup}
+        scaleStatus={isCloneDetected ? "SUSPENDED_TAMPERED" : (storeInst?.status || dbInst?.status)}
+        customTip={
+          isCloneDetected
+            ? `⚠️ FRAUD ALERT: Impossible distance detected (${distanceMismatchKm} km away from registered Mandi shop)! Suspected clone QR sticker on counterfeit scale.`
+            : undefined
+        }
+      />
     </div>
   </>
   );

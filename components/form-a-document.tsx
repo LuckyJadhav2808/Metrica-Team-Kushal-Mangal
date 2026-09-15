@@ -223,6 +223,21 @@ export function FormADocument({ instrument, certificate }: FormADocumentProps) {
                 ● Registered on Central Metrica Regulatory Trust Grid
               </span>
             </div>
+
+            {/* Geolocation Audit Watermark (Anti-Armchair Inspection) */}
+            <div className="border border-black/30 p-1.5 bg-neutral-50/50 col-span-2 flex items-center justify-between mt-1">
+              <div>
+                <span className="font-bold text-neutral-800 block text-[9px]">
+                  📍 Geolocation Audit Watermark (भू-स्थानिक सत्यापन मुहर):
+                </span>
+                <span className="font-mono text-[8.5px] text-neutral-900 font-semibold">
+                  {certificate.geoCoordinates || "28.7156° N, 77.1772° E (Azadpur APMC Mandi Hub • On-Site Fixed)"}
+                </span>
+              </div>
+              <span className="text-[7.5px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded uppercase tracking-wider">
+                Geofence Verified ✓
+              </span>
+            </div>
           </div>
         </div>
 

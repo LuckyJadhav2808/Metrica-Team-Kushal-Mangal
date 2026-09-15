@@ -223,7 +223,7 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
       </div>
 
       {/* TIER 1: Universal Institutional Navigation Header */}
-      <header className="h-16 bg-surface border-b border-outline-variant px-3 sm:px-4 lg:px-6 flex items-center justify-between z-30 shrink-0 sticky top-0 shadow-xs">
+      <header className="h-16 bg-surface border-b border-outline-variant px-3 sm:px-4 lg:px-6 hidden md:flex items-center justify-between z-30 shrink-0 sticky top-0 shadow-xs">
         {/* Left: Breadcrumb & Portal Switcher Trigger */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           {/* Portal Switcher Dropdown */}

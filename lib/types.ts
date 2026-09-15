@@ -122,6 +122,7 @@ export interface Verification {
   observations: VerificationObservation[];
   summaryNotes?: string;
   performedOffline?: boolean;
+  geoCoordinates?: string;
 }
 
 export interface Certificate {
@@ -136,6 +137,7 @@ export interface Certificate {
   digitalSignatureHash: string;
   signedByOfficerName: string;
   qrPayloadUrl: string;
+  geoCoordinates?: string;
 }
 
 export interface Complaint {

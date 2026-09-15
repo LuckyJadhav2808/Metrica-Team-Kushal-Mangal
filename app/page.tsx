@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMetrica } from "@/lib/store";
 import { Modal } from "@/components/ui/modal";
 import { useI18n } from "@/lib/i18n";
+import { MascotCompanion } from "@/components/mascot-companion";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -918,6 +919,9 @@ export default function LandingPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Legal Metrology Companion Mascot (MetriPrahari) */}
+      <MascotCompanion />
     </div>
   );
 }
