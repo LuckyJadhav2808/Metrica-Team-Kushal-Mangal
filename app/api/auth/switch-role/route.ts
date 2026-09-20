@@ -20,19 +20,23 @@ export async function POST(req: NextRequest) {
     };
 
     const targetEmail = roleEmailMap[role];
-    let user = null;
+    let user: any = null;
 
-    if (targetEmail) {
-      user = await prisma.user.findUnique({
-        where: { email: targetEmail },
-      });
-    }
+    try {
+      if (targetEmail) {
+        user = await prisma.user.findUnique({
+          where: { email: targetEmail },
+        });
+      }
 
-    // Fallback: find any user with this role
-    if (!user) {
-      user = await prisma.user.findFirst({
-        where: { role },
-      });
+      // Fallback: find any user with this role
+      if (!user) {
+        user = await prisma.user.findFirst({
+          where: { role },
+        });
+      }
+    } catch (dbErr) {
+      console.warn("DB lookup error in switch-role, using ephemeral persona fallback:", dbErr);
     }
 
     // If still not found, construct an ephemeral persona session
