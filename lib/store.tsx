@@ -13,6 +13,12 @@ import {
   AuditLog,
 } from "./types";
 import { supabase } from "./supabase";
+import {
+  BENCHMARK_INSTRUMENTS,
+  BENCHMARK_APPLICATIONS,
+  BENCHMARK_CERTIFICATES,
+  BENCHMARK_COMPLAINTS,
+} from "./benchmark-data";
 
 function mapSupabaseInstrument(data: any): Instrument {
   return {
@@ -184,6 +190,7 @@ interface MetricaContextType {
   updateInstrumentFlag: (instrumentId: string, flag: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL", notes?: string, suspendTampered?: boolean) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  loadBenchmarkData: (data?: any) => void;
   clearAllData: () => void;
 }
 
@@ -1336,6 +1343,33 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loadBenchmarkData = (customData?: any) => {
+    const insts: Instrument[] = customData?.instruments || BENCHMARK_INSTRUMENTS;
+    const apps: VerificationApplication[] = customData?.applications || BENCHMARK_APPLICATIONS;
+    const certs: Certificate[] = customData?.certificates || BENCHMARK_CERTIFICATES;
+    const cmps: Complaint[] = customData?.complaints || BENCHMARK_COMPLAINTS;
+
+    setInstruments(insts);
+    setApplications(apps);
+    setCertificates(certs);
+    setComplaints(cmps);
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          currentRole: currentUser.role,
+          instruments: insts,
+          applications: apps,
+          certificates: certs,
+          complaints: cmps,
+        })
+      );
+    } catch (e) {
+      console.warn("Storage save error:", e);
+    }
+  };
+
   const clearAllData = () => {
     setInstruments([]);
     setApplications([]);
@@ -1345,7 +1379,9 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
     setOfficers([]);
     setNotifications([]);
     setAuditLogs([]);
-    localStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
   };
 
   return (
@@ -1382,6 +1418,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
         updateInstrumentFlag,
         markNotificationRead,
         markAllNotificationsRead,
+        loadBenchmarkData,
         clearAllData,
       }}
     >

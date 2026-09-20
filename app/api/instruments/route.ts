@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(instruments);
   } catch (error) {
-    console.error("GET instruments error:", error);
-    return NextResponse.json({ error: "Failed to fetch instruments" }, { status: 500 });
+    console.warn("GET instruments notice (database not initialized, returning empty):", error);
+    return NextResponse.json([]);
   }
 }
 

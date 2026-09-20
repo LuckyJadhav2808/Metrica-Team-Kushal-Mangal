@@ -142,6 +142,7 @@ export interface Certificate {
 
 export interface Complaint {
   id: string;
+  complaintNumber?: string;
   instrumentId?: string;
   digitalInstrumentId?: string;
   complainantName?: string;

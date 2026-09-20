@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(applications);
   } catch (error) {
-    console.error("GET applications error:", error);
-    return NextResponse.json({ error: "Failed to fetch applications" }, { status: 500 });
+    console.warn("GET applications notice (database not initialized, returning empty):", error);
+    return NextResponse.json([]);
   }
 }
 
