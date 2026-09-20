@@ -10,24 +10,41 @@ export async function GET() {
       return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        name: true,
-        designation: true,
-        phone: true,
-        organizationName: true,
-        jurisdictionCircle: true,
-        officerBadgeId: true,
-        avatarLetter: true,
-      },
-    });
+    let user: any = null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          name: true,
+          designation: true,
+          phone: true,
+          organizationName: true,
+          jurisdictionCircle: true,
+          officerBadgeId: true,
+          avatarLetter: true,
+        },
+      });
+    } catch (dbErr) {
+      console.warn("DB lookup error in /api/auth/me, falling back to JWT session:", dbErr);
+    }
 
+    // If not in DB or DB offline, reconstruct user from valid JWT session token
     if (!user) {
-      return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
+      user = {
+        id: session.userId,
+        email: session.email,
+        role: session.role,
+        name: session.name,
+        designation: session.designation,
+        phone: "",
+        organizationName: session.organizationName || null,
+        jurisdictionCircle: session.jurisdictionCircle || "National",
+        officerBadgeId: session.officerBadgeId || null,
+        avatarLetter: session.name ? session.name.charAt(0).toUpperCase() : "U",
+      };
     }
 
     return NextResponse.json({ authenticated: true, user });
