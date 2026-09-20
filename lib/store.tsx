@@ -228,7 +228,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const instRes = await fetch("/api/instruments");
       if (instRes.ok) {
         const dbInstruments = await instRes.json();
-        if (Array.isArray(dbInstruments)) {
+        if (Array.isArray(dbInstruments) && dbInstruments.length > 0) {
           const mappedInstruments: Instrument[] = dbInstruments.map((dbInst: any) => ({
             id: dbInst.id,
             digitalInstrumentId: dbInst.digitalInstrumentId,
@@ -279,8 +279,6 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
           });
           if (dbCerts.length > 0) {
             setCertificates(dbCerts);
-          } else if (dbInstruments.length === 0) {
-            setCertificates([]);
           }
         }
       }
@@ -289,7 +287,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const appRes = await fetch("/api/applications");
       if (appRes.ok) {
         const dbApps = await appRes.json();
-        if (Array.isArray(dbApps)) {
+        if (Array.isArray(dbApps) && dbApps.length > 0) {
           const mappedApps: VerificationApplication[] = dbApps.map((dbApp: any) => ({
             id: dbApp.id,
             applicationNumber: dbApp.applicationNumber,
@@ -320,7 +318,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const certRes = await fetch("/api/certificates");
       if (certRes.ok) {
         const fetchedCerts = await certRes.json();
-        if (Array.isArray(fetchedCerts)) {
+        if (Array.isArray(fetchedCerts) && fetchedCerts.length > 0) {
           setCertificates(fetchedCerts);
         }
       }
@@ -329,7 +327,7 @@ export function MetricaProvider({ children }: { children: React.ReactNode }) {
       const cmpRes = await fetch("/api/complaints");
       if (cmpRes.ok) {
         const fetchedComplaints = await cmpRes.json();
-        if (Array.isArray(fetchedComplaints)) {
+        if (Array.isArray(fetchedComplaints) && fetchedComplaints.length > 0) {
           setComplaints(
             fetchedComplaints.map((c: any) => ({
               id: c.id,

@@ -53,7 +53,6 @@ export function EvaluationSandbox() {
         loadBenchmarkData();
       }
 
-      await refreshDatabase();
       toast.success(
         "Benchmark Dataset Active",
         "Populated 12 scales across Azadpur, Ghazipur, and Okhla Mandis with live MPE dockets."
