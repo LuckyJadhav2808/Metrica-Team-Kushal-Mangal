@@ -77,10 +77,15 @@ export function InstitutionalHeader({ title, subtitle }: HeaderProps) {
   const handlePersonaSwitch = async (role: UserRole) => {
     setIsProfileOpen(false);
     await loginAs(role);
-    if (role === "ADMIN") router.push("/admin");
-    else if (role === "LMO") router.push("/lmo");
-    else if (role === "OWNER") router.push("/owner");
-    else if (role === "MANUFACTURER") router.push("/manufacturer");
+    const target =
+      role === "ADMIN"
+        ? "/admin"
+        : role === "LMO"
+        ? "/lmo"
+        : role === "OWNER"
+        ? "/owner"
+        : "/manufacturer";
+    window.location.href = target;
   };
 
   const handlePortalSelect = async (portal: typeof portalsList[0]) => {

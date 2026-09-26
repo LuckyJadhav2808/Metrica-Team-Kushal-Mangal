@@ -35,19 +35,15 @@ export function InstitutionalNavigation({ activeSection, role: propRole }: NavPr
     setIsProfileSheetOpen(false);
     setMobileMenuOpen(false);
     await loginAs(role);
-    if (role === "ADMIN") {
-      router.push("/admin");
-      toast.info("Persona Switched", "Active role: Controller (DoCA Admin)");
-    } else if (role === "LMO") {
-      router.push("/lmo");
-      toast.info("Persona Switched", "Active role: Field Inspection Officer (LMO)");
-    } else if (role === "OWNER") {
-      router.push("/owner");
-      toast.info("Persona Switched", "Active role: Commercial Scale Licensee (Merchant)");
-    } else if (role === "MANUFACTURER") {
-      router.push("/manufacturer");
-      toast.info("Persona Switched", "Active role: OEM Manufacturer");
-    }
+    const target =
+      role === "ADMIN"
+        ? "/admin"
+        : role === "LMO"
+        ? "/lmo"
+        : role === "OWNER"
+        ? "/owner"
+        : "/manufacturer";
+    window.location.href = target;
   };
 
   const handleSignOut = () => {
